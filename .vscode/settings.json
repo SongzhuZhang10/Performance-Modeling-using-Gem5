@@ -1,0 +1,13 @@
+{
+    "python.formatting.provider": "black",
+    "python.analysis.stubPath": "typings",
+    "python.analysis.extraPaths": ["gem5/src/python"],
+    "python.formatting.blackArgs": [
+        "--line-length",
+        "79"
+    ],
+    "editor.rulers": [
+        79
+    ],
+    "python.analysis.typeCheckingMode": "basic"
+}
