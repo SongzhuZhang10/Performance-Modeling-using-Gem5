@@ -80,6 +80,7 @@ class MESITwoLevelCacheHierarchy(
         requires(coherence_protocol_required=CoherenceProtocol.MESI_TWO_LEVEL)
 
         cache_line_size = board.get_cache_line_size()
+        print(f"Cache line size of the board: {cache_line_size}")
 
         self.ruby_system = RubySystem()
 
@@ -104,6 +105,7 @@ class MESITwoLevelCacheHierarchy(
                 board.get_clock_domain(),
             )
 
+            # The RubySequencer object does not have |dcache| variable.
             cache.sequencer = RubySequencer(
                 version=i, dcache=cache.L1Dcache, clk_domain=cache.clk_domain
             )

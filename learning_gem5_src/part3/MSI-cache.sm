@@ -46,7 +46,7 @@
 // There are many cases in SLICC where you must include a description to
 // go along with the variable.
 machine(MachineType:L1Cache, "MSI cache")
-    : Sequencer *sequencer; // Incoming request from CPU come from this
+    : Sequencer *sequencer; // Incoming request from CPU to this machine
       CacheMemory *cacheMemory; // This stores the data and cache states
       bool send_evictions; // Needed to support O3 CPU and mwait
 
@@ -744,7 +744,7 @@ machine(MachineType:L1Cache, "MSI cache")
 
     /**
      * An action to forward evictions to the CPU.
-     * This is required for gem5’s out-of-order models to squash speculative loads when
+     * This is required for gem5's out-of-order models to squash speculative loads when
      * the cache block is evicted before the load is committed.
      * Use the parameter specified at the top of the state machine file to check if this
      * action is needed or not.

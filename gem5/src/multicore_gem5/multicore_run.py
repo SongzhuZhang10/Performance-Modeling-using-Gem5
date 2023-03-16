@@ -33,7 +33,7 @@ from gem5.components.processors.linear_generator import LinearGenerator
 from gem5.components.memory import SingleChannelDDR3_1600
 
 parser = argparse.ArgumentParser(
-    description="A traffic generator used to test a gem5 memory component."
+    description="Traffic generators are used to test gem5 memory components."
 )
 
 parser.add_argument(
@@ -47,10 +47,11 @@ parser.add_argument(
     choices=["Classic", "MESITwoLevel"],
 )
 
+
 parser.add_argument(
     "mem_args",
     nargs="*",
-    help="The arguments needed to instantiate the memory class.",
+    help="The size of the main memory.",
 )
 
 def cache_factory(cache):
@@ -85,21 +86,31 @@ def cache_factory(cache):
 
 args = parser.parse_args()
 cache_hierarchy = cache_factory(args.cache_system)
+
+
 memory = SingleChannelDDR3_1600(*args.mem_args)
+#print(f"Size of Main Memory: {*args.mem_args}")
+
 generator = LinearGenerator(
             duration="250us",
             rate="40GB/s",
             num_cores=args.generator_cores,
             max_addr=memory.get_size(),
+            rd_perc=50,
         )
 
 motherboard = TestBoard(
     clk_freq="3GHz",
-    processor=generator,  # We pass the traffic generator as the processor. # type: ignore
+    # We pass the traffic generator as the processor.
+    generator=generator,
     memory=memory,
     cache_hierarchy=cache_hierarchy,
-) # type: ignore
+)
+
 root = Root(full_system=False, system=motherboard)
+
+motherboard._pre_instantiate()
+
 m5.instantiate()
 generator.start_traffic()
 print("Beginning simulation!")
