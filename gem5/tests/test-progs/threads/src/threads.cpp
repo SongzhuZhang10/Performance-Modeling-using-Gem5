@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017 Jason Lowe-Power
+* Copyright (c) 2023 Songzhu Zhang
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -27,17 +27,58 @@
 */
 
 #include <iostream>
+
+// Use the standard C++ libraries for multi-threading
 #include <thread>
+
+#include <mutex>
+#include <vector>
+
 
 using namespace std;
 
-/*
- * c = a + b
- */
-void array_add(int *a, int *b, int *c, int tid, int threads, int num_values)
+mutex shared_var_mutex;
+mutex shared_print_mutex;
+unsigned int shared_var = 0;
+
+const unsigned num_iterations = 10;
+
+void busy_wait(int count, int thread_id) {
+    // NOTE: When a thread prints something out, the print statement must be
+    // guarded by mutexes.
+    shared_print_mutex.lock();
+    printf("Thread %d is busy for %d ticks.\n", thread_id, count);
+    shared_print_mutex.unlock();
+
+    // Perform a large number of iterations to keep the program busy
+    for (int i = 0; i < count; ++i) {
+        // Do some simple computation
+        int j = i % 10;
+        j *= 2;
+    }
+
+    shared_print_mutex.lock();
+    printf("Thread %d is free.\n", thread_id);
+    shared_print_mutex.unlock();
+}
+
+// Thread function
+void thread_func(int thread_id, int num_iterations)
 {
-    for (int i = tid; i < num_values; i += threads) {
-        c[i] = a[i] + b[i];
+    for (int i = 0; i < num_iterations; ++i)
+    {
+        // Lock the mutex to access the shared variable
+        shared_var_mutex.lock();
+        shared_var++;
+        // Unlock the mutex before sleeping to allow other threads to access it
+        shared_var_mutex.unlock();
+
+        shared_print_mutex.lock();
+        printf("Thread %d accessed the common resource!\n", thread_id);
+        shared_print_mutex.unlock();
+        
+        int sleep_duration = rand() % (10 * (thread_id + 1) + num_iterations) + num_iterations;
+        busy_wait(sleep_duration, thread_id);
     }
 }
 
@@ -45,66 +86,39 @@ void array_add(int *a, int *b, int *c, int tid, int threads, int num_values)
 // false sharing to stress the Ruby protocol.
 int main()
 {
-    unsigned num_values = 5000;
 
-    unsigned cpus = thread::hardware_concurrency();
+    unsigned num_cores = thread::hardware_concurrency();
+    //unsigned num_cores = 2;
 
-    cout << "The program is running on " << cpus << " physical cores ";
-    cout << "with " << num_values << " values." << endl;
+    cout << "This test program is running on " << num_cores << " physical cores ";
+    cout << "with " << num_iterations << " iterations." << endl;
+    cout << "Note that only SimplePt2Pt network class is supported by gem5 SE mode." << endl;
 
-    int *a, *b, *c;
-    a = new int[num_values];
-    b = new int[num_values];
-    c = new int[num_values];
+    vector<thread> threads;
 
-    if (!(a && b && c)) {
-        cerr << "Allocation error!" << endl;
-        return 2;
+    // NOTE: -1 is required for this test program to work in SE mode.
+    for (int i = 0; i < num_cores - 1; i++) {
+        threads.emplace_back(thread_func, i, num_iterations);
     }
 
-    for (int i = 0; i < num_values; i++) {
-        a[i] = i;
-        b[i] = num_values - i;
-        c[i] = 0;
+    // Execute the last thread with this thread context to avoid runtime errors
+    // that exist only in SE mode.
+    thread_func(num_cores - 1, num_iterations);
+
+    // Wait for all threads to finish.
+    for (auto& thread : threads) {
+        thread.join();
     }
 
-    thread **threads = new thread*[cpus];
-
-    // NOTE: -1 is required for this to work in SE mode.
-    for (int i = 0; i < cpus - 1; i++) {
-        threads[i] = new thread(array_add, a, b, c, i, cpus, num_values);
+    // Check if the result is correct
+    int expected_result = num_cores * num_iterations;
+    if (shared_var == expected_result)
+    {
+        cout << "Result is correct: " << shared_var << endl;
     }
-
-    cout << cpus << " threads are running concurrently..." << endl;
-
-    // Execute the last thread with this thread context to appease SE mode
-    array_add(a, b, c, cpus - 1, cpus, num_values);
-
-    cout << "Waiting for other threads to complete" << endl;
-
-    for (int i = 0; i < cpus - 1; i++) {
-        threads[i]->join();
+    else
+    {
+        cout << "Result is incorrect: expected " << expected_result << ", actual " << shared_var << endl;
     }
-
-    delete[] threads;
-
-    cout << "Validating...  " << flush;
-
-    int num_valid = 0;
-    for (int i = 0; i < num_values; i++) {
-        if (c[i] == num_values) {
-            num_valid++;
-        } else {
-            cerr << "c[" << i << "] is wrong.";
-            cerr << " Expected " << num_values;
-            cerr << " Got " << c[i] << "." << endl;
-        }
-    }
-
-    if (num_valid == num_values) {
-        cout << "Success!" << endl;
-        return 0;
-    } else {
-        return 2;
-    }
+    return 0;
 }

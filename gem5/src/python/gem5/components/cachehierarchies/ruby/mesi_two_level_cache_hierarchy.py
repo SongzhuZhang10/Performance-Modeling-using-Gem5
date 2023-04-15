@@ -75,6 +75,8 @@ class MESITwoLevelCacheHierarchy(
 
         self._num_l2_banks = num_l2_banks
 
+    # This function is called in abstract_board.py in
+    # ./src/python/gem5/components/boards/
     def incorporate_cache(self, board: AbstractBoard) -> None:
 
         requires(coherence_protocol_required=CoherenceProtocol.MESI_TWO_LEVEL)

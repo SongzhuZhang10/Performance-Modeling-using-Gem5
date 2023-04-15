@@ -24,45 +24,44 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from ..abstract_l2_cache import AbstractL2Cache
-from ......utils.override import *
+from m5.objects import *
+from m5.util import fatal, panic
+from pprint import pprint
 
-from m5.objects import MessageBuffer, RubyCache
+class Directory(Directory_Controller):
 
-import math
+    _version = 0
 
+    @classmethod
+    def versionCount(cls):
+        cls._version += 1
+        return cls._version - 1
 
-class L2Cache(AbstractL2Cache):
     def __init__(
-        self, l2_size, l2_assoc, network, num_l2Caches, cache_line_size
+        self,
+        ruby_system,
+        cache_line_size,
+        mem_range,
+        port,
+        clk_domain: ClockDomain,
     ):
-        super().__init__(network, cache_line_size)
 
-        # This is the cache memory object that stores the cache data and tags.
-        self.L2cache = RubyCache(
-            size=l2_size,
-            assoc=l2_assoc,
-            start_index_bit=self.getIndexBit(num_l2Caches),
-        )
+        super().__init__()
+        self.version = self.versionCount()
+        self._cache_line_size = cache_line_size
+        self.addr_ranges = mem_range
+        self.ruby_system = ruby_system # Don't foget this!
+        self.directory = RubyDirectoryMemory()
+        self.clk_domain = clk_domain
+        self.memory_out_port = port
+        self.connectQueues(ruby_system.network)
 
-        self.transitions_per_cycle = 4
-
-    def getIndexBit(self, num_l2caches):
-        l2_bits = int(math.log(num_l2caches, 2))
-        bits = int(math.log(self._cache_line_size, 2)) + l2_bits
-        return bits
-
-    @overrides(AbstractL2Cache)
     def connectQueues(self, network):
-        self.DirRequestFromL2Cache = MessageBuffer()
-        self.DirRequestFromL2Cache.out_port = network.in_port
-        self.L1RequestFromL2Cache = MessageBuffer()
-        self.L1RequestFromL2Cache.out_port = network.in_port
-        self.responseFromL2Cache = MessageBuffer()
-        self.responseFromL2Cache.out_port = network.in_port
-        self.unblockToL2Cache = MessageBuffer()
-        self.unblockToL2Cache.in_port = network.out_port
-        self.L1RequestToL2Cache = MessageBuffer()
-        self.L1RequestToL2Cache.in_port = network.out_port
-        self.responseToL2Cache = MessageBuffer()
-        self.responseToL2Cache.in_port = network.out_port
+        self.requestToDir = MessageBuffer()
+        self.requestToDir.in_port = network.out_port
+        self.responseToDir = MessageBuffer()
+        self.responseToDir.in_port = network.out_port
+        self.responseFromDir = MessageBuffer()
+        self.responseFromDir.out_port = network.in_port
+        self.requestToMemory = MessageBuffer()
+        self.responseFromMemory = MessageBuffer()

@@ -1,0 +1,55 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/X86_debug/gem5.debug",
+            "args": [
+                "${workspaceFolder}/configs/multicore_gem5/mesi_two_level_ruby_random_test/ruby_random_test_MESI.py"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                // A list of GDB commands to be executed automatically when
+                // the debugging session starts
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    // GDB commands `text` is executed automatically when
+                    // the debugging session starts
+                    "text": "-enable-pretty-printing",
+                    // The "ignoreFailures" property indicates whether to
+                    // ignore any errors that occur when executing the command.
+                    // When set to true, which means that if the command fails
+                    // for any reason, the debugging session will continue
+                    // without interruption.
+                    "ignoreFailures": false
+                }
+            ],
+            "miDebuggerPath": "/usr/bin/gdb" // Path to GDB on your system
+        },
+        {
+            "name": "Python: Debug with PDB and gem5.debug",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/configs/multicore_gem5/mesi_two_level_ruby_random_test/ruby_random_test_MESI.py",
+            //"program": "${workspaceFolder}/build/X86_debug/gem5.debug",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+              "PATH": "${workspaceFolder}/build/X86_debug/gem5.debug:${workspaceFolder}/build/X86_debug/python/",
+              "PYTHONPATH": "${workspaceFolder}/build/X86_debug/python/:${workspaceFolder}/build/X86_debug/"
+            },
+            "args": [
+                "${workspaceFolder}/build/X86_debug/gem5.debug",
+                "${workspaceFolder}/configs/multicore_gem5/mesi_two_level_ruby_random_test/ruby_random_test_MESI.py"
+            ],
+            "stopOnEntry": false,
+            "python": "/bin/python3",
+          }
+    ]
+}

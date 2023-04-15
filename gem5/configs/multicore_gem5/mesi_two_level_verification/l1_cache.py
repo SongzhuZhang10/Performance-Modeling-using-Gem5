@@ -1,5 +1,5 @@
-# Copyright (c) 2021 The Regents of the University of California
-# All Rights Reserved.
+# Copyright (c) 2023 Songzhu Zhang
+# All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -24,35 +24,68 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from .....processors.abstract_core import AbstractCore
-from ......isas import ISA
-from ..abstract_l1_cache import AbstractL1Cache
-from ......utils.override import *
+"""
+***********************************************
+*                                             *
+*          Config file for L1 Cache           *
+*                                             *
+***********************************************
 
-from m5.objects import MessageBuffer, RubyPrefetcher, RubyCache, ClockDomain
+Author: Songzhu Zhang
+Date: 2023/04/03
+
+Description:
+This config file configures the L1Cache_Controller class defined in
+`build/X86_debug/mem/ruby/protocol/L1Cache_Controller.py`.
+
+It is customized to support Ruby ramdon test.
+"""
 
 import math
 
+from m5.util import fatal, panic
 
-class L1Cache(AbstractL1Cache):
+from m5.objects import *
+
+class L1Cache(L1Cache_Controller):
+
+    # variable to track the version number
+    _version = 0
+
+    # Decorator to create a class method
+    @classmethod
+    def versionCount(cls):
+        # Must number each SLICC state machine in ascending order from 0.
+        # Each machine of the same type should have a unique version number.
+        cls._version += 1
+        return cls._version - 1
+
     def __init__(
         self,
         l1i_size,
         l1i_assoc,
         l1d_size,
         l1d_assoc,
-        network,
-        core: AbstractCore,
         num_l2Caches,
         cache_line_size,
-        target_isa: ISA,
+        ruby_system,
         clk_domain: ClockDomain,
     ):
-        """Creating L1 cache controller. Consist of both instruction
+        """
+        Create an L1 cache controller that consists of both instruction
         and data cache.
         """
-        super().__init__(network, cache_line_size)
+        super().__init__()
 
+        self.version = self.versionCount()
+
+        self._cache_line_size = cache_line_size
+
+        """
+        We set all of the parameters that we named in the *.sm files.
+        To know which paramters that need to be set in the config file,
+        use `build/{ISA}/mem/ruby/protocol/L1Cache_Controller.py` as reference.
+        """
         # This is the cache memory object that stores the cache data and tags
         self.L1Icache = RubyCache(
             size=l1i_size,
@@ -60,22 +93,40 @@ class L1Cache(AbstractL1Cache):
             start_index_bit=self.getBlockSizeBits(),
             is_icache=True,
         )
+
         self.L1Dcache = RubyCache(
             size=l1d_size,
             assoc=l1d_assoc,
             start_index_bit=self.getBlockSizeBits(),
             is_icache=False,
         )
+
         self.l2_select_num_bits = int(math.log(num_l2Caches, 2))
         self.clk_domain = clk_domain
         self.prefetcher = RubyPrefetcher()
-        self.send_evictions = core.requires_send_evicts()
+        self.send_evictions = True
         self.transitions_per_cycle = 4
-        self.enable_prefetch = True
+        """
+        Prefetch only works in FS mode and thus can only be enabled in FS mode.
+        Otherwise, packets with invalid data will be prefetched, leading to
+        errors in the function gem5::Packet::getPtr()
+        """
+        self.enable_prefetch = False
 
-    @overrides(AbstractL1Cache)
+        self.ruby_system = ruby_system # Must do this!
+        self.connectQueues(ruby_system.network)
+
+    # This function returns the number of bits in byte offset field.
+    def getBlockSizeBits(self):
+        bits = int(math.log(self._cache_line_size, 2))
+        if 2**bits != self._cache_line_size.value:
+            raise Exception("Cache line size not a power of 2!")
+        return bits
+
+
     def connectQueues(self, network):
         self.mandatoryQueue = MessageBuffer()
+        
         self.requestFromL1Cache = MessageBuffer()
         self.requestFromL1Cache.out_port = network.in_port
         self.responseFromL1Cache = MessageBuffer()

@@ -61,6 +61,17 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
    MessageBuffer * responseFromL1Cache, network="To", virtual_network="1",
         vnet_type="response";
 
+/*
+The L1 cache sends an unblock message to the L2 cache when it has completed a
+memory access that was blocked due to a cache miss and has received the
+requested data from the L2 cache. The unblock message is sent to inform the L2
+cache that
+1. the L1 cache is ready to receive new requests because it is no longer
+blocked waiting for data.
+2. the L2 cache can now proceed with any dependent memory accesses that were
+blocked due to the previous access because the requested data is now available
+in the L1 cache.
+*/
    MessageBuffer * unblockFromL1Cache, network="To", virtual_network="2",
         vnet_type="unblock";
 
@@ -278,6 +289,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     } else if ((type == RubyRequestType:ST) || (type == RubyRequestType:ATOMIC)) {
       return Event:Store;
     } else {
+      DPRINTF(RubySlicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
       error("Invalid RubyRequestType");
     }
   }
@@ -291,6 +303,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                  (type == RubyRequestType:ATOMIC)) {
           return Event:PF_Store;
       } else {
+          DPRINTF(RubySlicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
           error("Invalid RubyRequestType");
       }
   }
@@ -308,7 +321,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // Prefetch queue between the controller and the prefetcher
   // As per Spracklen et al. (HPCA 2005), the prefetch queue should be
   // implemented as a LIFO structure.  The structure would allow for fast
-  // searches of all entries in the queue, not just the head msg. All
+  // searches for all entries in the queue, not just the head msg. All
   // msgs in the structure can be invalidated if a demand miss matches.
   in_port(optionalQueue_in, RubyRequest, optionalQueue, desc="...", rank = 3) {
       if (optionalQueue_in.isReady(clockEdge())) {
@@ -319,14 +332,17 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                   if (is_valid(L1Icache_entry)) {
                       // The block to be prefetched is already present in the
                       // cache. We should drop this request.
+                      DPRINTF(RubySlicc, "Instr block %s to be prefetched is already in local L1.\n", L1Icache_entry.DataBlk);
                       trigger(prefetch_request_type_to_event(in_msg.Type),
                               in_msg.LineAddress,
                               L1Icache_entry, TBEs[in_msg.LineAddress]);
                   }
 
+                  DPRINTF(RubySlicc, "Instr block %s to be prefetched is absent in local L1.\n", L1Icache_entry.DataBlk);
                   // Check to see if it is in the OTHER L1
                   Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
                   if (is_valid(L1Dcache_entry)) {
+                      DPRINTF(RubySlicc, "Instr Block %s to be prefetched is in on-chip L1.\n", L1Dcache_entry.DataBlk);
                       // The block is in the wrong L1 cache. We should drop
                       // this request.
                       trigger(prefetch_request_type_to_event(in_msg.Type),
@@ -334,7 +350,9 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                               L1Dcache_entry, TBEs[in_msg.LineAddress]);
                   }
 
+                  DPRINTF(RubySlicc, "Instr Block to be prefetched is absent in local L1.\n");
                   if (L1Icache.cacheAvail(in_msg.LineAddress)) {
+                      DPRINTF(RubySlicc, "Space available in L1. Check if the instr block to be prefetched is in L2.\n");
                       // L1 does't have the line, but we have space for it
                       // in the L1 so let's see if the L2 has it
                       trigger(prefetch_request_type_to_event(in_msg.Type),
@@ -342,6 +360,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                               L1Icache_entry, TBEs[in_msg.LineAddress]);
                   } else {
                       // No room in the L1, so we need to make room in the L1
+                      DPRINTF(RubySlicc, "No space in L1. Evict a I-cache block for a prefetched block.\n");
                       Addr victim := L1Icache.cacheProbe(in_msg.LineAddress);
                       trigger(Event:PF_L1_Replacement,
                               victim, getL1ICacheEntry(victim), TBEs[victim]);
@@ -350,6 +369,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                   // Data prefetch
                   Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
                   if (is_valid(L1Dcache_entry)) {
+                      DPRINTF(RubySlicc, "Data block %s to be prefetched is already in local L1.\n", L1Dcache_entry.DataBlk);
                       // The block to be prefetched is already present in the
                       // cache. We should drop this request.
                       trigger(prefetch_request_type_to_event(in_msg.Type),
@@ -357,17 +377,20 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                               L1Dcache_entry, TBEs[in_msg.LineAddress]);
                   }
 
+                  DPRINTF(RubySlicc, "Data block %s to be prefetched is absent in local L1.\n", L1Dcache_entry.DataBlk);
                   // Check to see if it is in the OTHER L1
                   Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
                   if (is_valid(L1Icache_entry)) {
-                      // The block is in the wrong L1. Just drop the prefetch
-                      // request.
+                      DPRINTF(RubySlicc, "Data block %s to be prefetched is in on-chip L1.\n", L1Icache_entry.DataBlk);
+                      // The block is in the wrong L1. Just drop the prefetch request.
                       trigger(prefetch_request_type_to_event(in_msg.Type),
                               in_msg.LineAddress,
                               L1Icache_entry, TBEs[in_msg.LineAddress]);
                   }
 
+                  DPRINTF(RubySlicc, "Data block to be prefetched is absent in on-chip L1.\n");
                   if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
+                      DPRINTF(RubySlicc, "Space available in L1. Check if the data block to be prefetched is in L2.\n");
                       // L1 does't have the line, but we have space for it in
                       // the L1 let's see if the L2 has it
                       trigger(prefetch_request_type_to_event(in_msg.Type),
@@ -375,6 +398,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                               L1Dcache_entry, TBEs[in_msg.LineAddress]);
                   } else {
                       // No room in the L1, so we need to make room in the L1
+                      DPRINTF(RubySlicc, "No space in L1. Evict a D-cache block for a prefetched block.\n");
                       Addr victim := L1Dcache.cacheProbe(in_msg.LineAddress);
                       trigger(Event:PF_L1_Replacement,
                               victim, getL1DCacheEntry(victim), TBEs[victim]);
@@ -405,19 +429,28 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
               trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
 
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
+            DPRINTF(RubySlicc, "No pending ack left on DATA response\n");
             trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
           } else {
+            DPRINTF(RubySlicc, "Pending ack of TBE on DATA response: %d\n",
+                    getPendingAcks(tbe));
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:ACK) {
           if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
+            DPRINTF(RubySlicc, "No pending ack left on ACK response\n");
             trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe);
           } else {
+            DPRINTF(RubySlicc, "Pending ack of TBE on ACK response: %d\n",
+                    getPendingAcks(tbe));
             trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:WB_ACK) {
+          DPRINTF(RubySlicc, "Pending ack of TBE on WB_ACK response: %d\n",
+                  getPendingAcks(tbe));
           trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else {
+          DPRINTF(RubySlicc, "Invalid L1 response type: %s\n", CoherenceResponseType_to_string(in_msg.Type));
           error("Invalid L1 response type");
         }
       }
@@ -444,45 +477,48 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         } else if (in_msg.Type == CoherenceRequestType:GET_INSTR) {
           trigger(Event:Fwd_GET_INSTR, in_msg.addr, cache_entry, tbe);
         } else {
+          DPRINTF(RubySlicc, "Invalid forwarded request type: %s\n", CoherenceRequestType_to_string(in_msg.Type));
           error("Invalid forwarded request type");
         }
       }
     }
   }
 
-  // Mandatory Queue betweens Node's CPU and it's L1 caches
+  // Mandatory Queue betweens Node's CPU and its L1 caches
   in_port(mandatoryQueue_in, RubyRequest, mandatoryQueue, desc="...", rank = 0) {
     if (mandatoryQueue_in.isReady(clockEdge())) {
       peek(mandatoryQueue_in, RubyRequest, block_on="LineAddress") {
 
-        // Check for data access to blocks in I-cache and ifetchs to blocks in D-cache
+        // Check for data access to blocks in D-cache and ifetchs to blocks in I-cache
 
-        if (in_msg.Type == RubyRequestType:IFETCH) {
-          // ** INSTRUCTION ACCESS ***
-
+        if (in_msg.Type == RubyRequestType:IFETCH) { // *** INSTRUCTION ACCESS ***
           Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
           if (is_valid(L1Icache_entry)) {
-            // The tag matches for the L1, so the L1 asks the L2 for it.
+            DPRINTF(RubySlicc, "I-cache hit in local L1.\n");
+            // The tag matches for the L1 I-cache. So, trigger the event IFETCH.
             trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                     L1Icache_entry, TBEs[in_msg.LineAddress]);
           } else {
-
-            // Check to see if it is in the OTHER L1
+            DPRINTF(RubySlicc, "I-cache miss in local L1.\n");
+            // Check to see if it is in OTHER L1 caches.
+            DPRINTF(RubySlicc, "Checking if the instr is in D-cache.\n");
             Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
             if (is_valid(L1Dcache_entry)) {
-              // The block is in the wrong L1, put the request on the queue to the shared L2
+              DPRINTF(RubySlicc, "Instr %s is found in D-cache. I-cache hit in on-chip L1.\n", L1Dcache_entry.DataBlk);
+              // The block is in the wrong L1. So, issue getInstr request to the shared L2.
               trigger(Event:L1_Replacement, in_msg.LineAddress,
                       L1Dcache_entry, TBEs[in_msg.LineAddress]);
             }
 
+            DPRINTF(RubySlicc, "I-cache miss in on-chip L1.\n");
             if (L1Icache.cacheAvail(in_msg.LineAddress)) {
-              // L1 does't have the line, but we have space for it
-              // in the L1 so let's see if the L2 has it.
+              DPRINTF(RubySlicc, "Space available in L1. Check if the missing instr is in L2.\n");
+              // L1 does not have the requested data, but we have space for it
+              // in the L1. So, let's see if the L2 has it.
               trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                       L1Icache_entry, TBEs[in_msg.LineAddress]);
             } else {
-              // No room in the L1, so we need to make room in the L1
-
+              DPRINTF(RubySlicc, "No space in L1. Evict a I-cache block.\n");
               // Check if the line we want to evict is not locked
               Addr addr := L1Icache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, addr);
@@ -492,32 +528,35 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                       TBEs[addr]);
             }
           }
-        } else {
-
-          // *** DATA ACCESS ***
+        } else { // *** DATA ACCESS ***
           Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
           if (is_valid(L1Dcache_entry)) {
-            // The tag matches for the L1, so the L1 ask the L2 for it
+            DPRINTF(RubySlicc, "D-cache hit in local L1.\n");
+            // The tag matches for the L1 D-cache. Cache hit.
             trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                     L1Dcache_entry, TBEs[in_msg.LineAddress]);
           } else {
-
+            DPRINTF(RubySlicc, "D-cache miss in local L1.\n");
             // Check to see if it is in the OTHER L1
+            DPRINTF(RubySlicc, "Checking if the data is in I-cache.\n");
             Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
             if (is_valid(L1Icache_entry)) {
+              DPRINTF(RubySlicc, "Data %s is found in I-cache. D-cache hit in on-chip L1.\n", L1Icache_entry.DataBlk);
               // The block is in the wrong L1, put the request on the queue to the shared L2
               trigger(Event:L1_Replacement, in_msg.LineAddress,
                       L1Icache_entry, TBEs[in_msg.LineAddress]);
             }
 
+            DPRINTF(RubySlicc, "D-cache miss in on-chip L1.\n");
             if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
+              DPRINTF(RubySlicc, "Space available in L1. Check if the missing data is in L2.\n");
               // L1 does't have the line, but we have space for it
               // in the L1 let's see if the L2 has it.
               trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                       L1Dcache_entry, TBEs[in_msg.LineAddress]);
             } else {
               // No room in the L1, so we need to make room in the L1
-
+              DPRINTF(RubySlicc, "No space in L1. Evict a D-cache block.\n");
               // Check if the line we want to evict is not locked
               Addr addr := L1Dcache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, addr);
@@ -751,7 +790,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     }
   }
 
-  action(ft_sendDataToL2_fromTBE, "ft", desc="send data to the L2 cache") {
+  action(ft_sendDataToL2_fromTBE, "ft", desc="send data from the TBE to the L2 cache") {
     enqueue(responseL1Network_out, ResponseMsg, l1_response_latency) {
       assert(is_valid(tbe));
       out_msg.addr := address;
@@ -765,7 +804,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     }
   }
 
-  action(fi_sendInvAck, "fi", desc="send data to the L2 cache") {
+  action(fi_sendInvAck, "fi", desc="send Inv Ack to the L2 cache") {
     peek(requestL1Network_in, RequestMsg) {
       enqueue(responseL1Network_out, ResponseMsg, l1_response_latency) {
         out_msg.addr := address;
@@ -916,6 +955,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     peek(responseL1Network_in, ResponseMsg) {
       assert(is_valid(tbe));
       tbe.pendingAcks := tbe.pendingAcks - in_msg.AckCount;
+      DPRINTF(RubySlicc, "Pending ack count left after the update: %d\n", tbe.pendingAcks);
       APPEND_TRANSITION_COMMENT(in_msg.AckCount);
       APPEND_TRANSITION_COMMENT(" p: ");
       APPEND_TRANSITION_COMMENT(tbe.pendingAcks);

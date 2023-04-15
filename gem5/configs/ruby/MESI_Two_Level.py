@@ -58,8 +58,9 @@ def create_system(
 
     #
     # The ruby network creation expects the list of nodes in the system to be
-    # consistent with the NetDest list.  Therefore the l1 controller nodes must be
-    # listed before the directory nodes and directory nodes before dma nodes, etc.
+    # consistent with the NetDest list.  Therefore the l1 controller nodes
+    # must be listed before the directory nodes and directory nodes before dma
+    # nodes, etc.
     #
     l1_cntrl_nodes = []
     l2_cntrl_nodes = []
@@ -69,13 +70,13 @@ def create_system(
     # Must create the individual controllers before the network to ensure the
     # controller constructors are called before the network constructor
     #
+
+    # Take the base-2 logarithm of the number of L2 caches in the system and
+    # round down to the nearest integer.
     l2_bits = int(math.log(options.num_l2caches, 2))
     block_size_bits = int(math.log(options.cacheline_size, 2))
 
     for i in range(options.num_cpus):
-        #
-        # First create the Ruby objects associated with this cpu
-        #
         l1i_cache = L1Cache(
             size=options.l1i_size,
             assoc=options.l1i_assoc,
@@ -102,6 +103,8 @@ def create_system(
             prefetcher=prefetcher,
             ruby_system=ruby_system,
             clk_domain=clk_domain,
+            # Controls the max rate at which coherence protocol state
+            # transitions occur in a single cycle of the simulation.
             transitions_per_cycle=options.ports,
             enable_prefetch=False,
         )
@@ -114,6 +117,10 @@ def create_system(
         )
 
         l1_cntrl.sequencer = cpu_seq
+        # Dynamically generate a string that represents a Python command which
+        # will be executed by the exec function.
+        # The %d placeholder is replaced with the value of the i variable
+        # to generate a unique name for each cache controller instance. 
         exec("ruby_system.l1_cntrl%d = l1_cntrl" % i)
 
         # Add controllers and sequencers to the appropriate lists
@@ -121,6 +128,7 @@ def create_system(
         l1_cntrl_nodes.append(l1_cntrl)
 
         # Connect the L1 controllers and the network
+        # Connect the buffers from the controller to network
         l1_cntrl.mandatoryQueue = MessageBuffer()
         l1_cntrl.requestFromL1Cache = MessageBuffer()
         l1_cntrl.requestFromL1Cache.out_port = ruby_system.network.in_port
@@ -131,6 +139,7 @@ def create_system(
 
         l1_cntrl.optionalQueue = MessageBuffer()
 
+        # Connect the buffers from the network to the controller
         l1_cntrl.requestToL1Cache = MessageBuffer()
         l1_cntrl.requestToL1Cache.in_port = ruby_system.network.out_port
         l1_cntrl.responseToL1Cache = MessageBuffer()
@@ -139,12 +148,11 @@ def create_system(
     l2_index_start = block_size_bits + l2_bits
 
     for i in range(options.num_l2caches):
-        #
-        # First create the Ruby objects associated with this cpu
-        #
         l2_cache = L2Cache(
             size=options.l2_size,
             assoc=options.l2_assoc,
+            # The start_index_bit attribute determines the bit position at
+            # which the index field starts in the physical address.
             start_index_bit=l2_index_start,
         )
 
@@ -194,7 +202,11 @@ def create_system(
         dir_cntrl.responseToDir.in_port = ruby_system.network.out_port
         dir_cntrl.responseFromDir = MessageBuffer()
         dir_cntrl.responseFromDir.out_port = ruby_system.network.in_port
+        # requestToMemory is used to forward coherence messages to memory
         dir_cntrl.requestToMemory = MessageBuffer()
+        # responseFromMemory is processed by the directory controller to
+        # update the directory state and forward the response to the
+        # appropriate cache
         dir_cntrl.responseFromMemory = MessageBuffer()
 
     for i, dma_port in enumerate(dma_ports):

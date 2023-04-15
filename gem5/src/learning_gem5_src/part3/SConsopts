@@ -1,0 +1,17 @@
+# The SConsopts files are processed before the SConscript files.
+# We need to run the SLICC compiler before SCons executes.
+
+Import('*')
+
+# NOTE: All SLICC setup code found in src/mem/ruby/protocol/SConscript
+
+# Register the name of our protocol ('MSI') with gem5/SCons.
+# SCons will assume that there is a file named MSI.slicc which
+# specifies all of the state machine files and auxiliary files.
+main.Append(ALL_PROTOCOLS=['MSI'])
+
+# Add this directory to the search path for SLICC in addition to
+# the protocol_dirs directories.
+# This tells the SCons to look in the current directory for files to
+# pass to the SLICC compiler.
+main.Append(PROTOCOL_DIRS=[Dir('.')])

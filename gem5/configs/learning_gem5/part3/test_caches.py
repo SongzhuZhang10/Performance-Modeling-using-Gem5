@@ -41,7 +41,7 @@ from m5.util import fatal
 from m5.objects import *
 
 from msi_caches import L1Cache, DirController, MyNetwork
-
+from pprint import pprint
 
 class TestCacheSystem(RubySystem):
     def __init__(self):
@@ -61,17 +61,21 @@ class TestCacheSystem(RubySystem):
         num_testers = tester.num_cpus
 
         # Ruby's global network.
+        # Parameter not defined in parent class but created to reduce the number of arguemnts to be passed to other objects
         self.network = MyNetwork(self)
 
         # MSI uses 3 virtual networks
-        self.number_of_virtual_networks = 3
-        self.network.number_of_virtual_networks = 3
+        # Parameter must be specified becausr it's defined in parent class
+        self.number_of_virtual_networks = 5
+        self.network.number_of_virtual_networks = 5
 
         self.controllers = [
             L1Cache(system, self, self) for i in range(num_testers)
         ] + [DirController(self, system.mem_ranges, mem_ctrls)]
 
-        self.sequencers = [
+        # Note: The for loop will not create an object for the DirController object
+        # because len(controllers) = num_testers + 1.
+        seq_list = [
             RubySequencer(
                 version=i,
                 # I/D cache is combined and grab from ctrl
@@ -80,34 +84,42 @@ class TestCacheSystem(RubySystem):
             )
             for i in range(num_testers)
         ]
+        print("DEBUG: Clock domain of Ruby sequencer is {}".format(self.clk_domain))
 
-        for i, c in enumerate(self.controllers[0 : len(self.sequencers)]):
-            c.sequencer = self.sequencers[i]
+        for i, c in enumerate(self.controllers[0 : len(seq_list)]):
+            c.sequencer = seq_list[i]
 
-        self.num_of_sequencers = len(self.sequencers)
+        self.num_of_sequencers = len(seq_list)
 
         # Create the network and connect the controllers.
         # NOTE: This is quite different if using Garnet!
+        print("Connecting all ctrls in the cache system via a simple network...")
+        #for i, obj in enumerate(self.controllers):
+        #    pprint(vars(obj))
+
         self.network.connectControllers(self.controllers)
         self.network.setup_buffers()
 
         # Set up a proxy port for the system_port. Used for load binaries and
-        # other functional-only things.
+        # other functional-only things. Parameter must be specified.
         self.sys_port_proxy = RubyPortProxy()
         system.system_port = self.sys_port_proxy.in_ports
 
         # Connect up the sequencers to the random tester
-        for seq in self.sequencers:
+        for seq in seq_list:
             if seq.support_data_reqs and seq.support_inst_reqs:
                 tester.cpuInstDataPort = seq.in_ports
+                print("The sequencer supports both data reqs and inst reqs.")
             elif seq.support_data_reqs:
                 tester.cpuDataPort = seq.in_ports
+                print("The sequencer supports only data reqs.")
             elif seq.support_inst_reqs:
                 tester.cpuInstDataPort = seq.in_ports
+                print("The sequencer supports only inst reqs.")
 
             # Do not automatically retry stalled Ruby requests
             seq.no_retry_on_stall = True
 
             # Tell each sequencer this is the ruby tester so that it
             # copies the subblock back to the checker
-            seq.using_ruby_tester = True
+            seq.using_ruby_tester = True            

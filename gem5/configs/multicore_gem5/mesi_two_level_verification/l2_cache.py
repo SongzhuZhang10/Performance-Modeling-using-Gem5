@@ -24,40 +24,92 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from ..abstract_l2_cache import AbstractL2Cache
-from ......utils.override import *
+"""
+***********************************************
+*                                             *
+*          Config file for L2 Cache           *
+*                                             *
+***********************************************
 
-from m5.objects import MessageBuffer, RubyCache
+Author: Songzhu Zhang
+Date: 2023/04/03
+
+Description:
+This config file configures the L2Cache_Controller class defined in
+`build/X86_debug/mem/ruby/protocol/L2Cache_Controller.py`.
+
+It is customized to support Ruby ramdon test.
+"""
 
 import math
 
+from m5.objects import *
 
-class L2Cache(AbstractL2Cache):
+class L2Cache(L2Cache_Controller):
+
+    # variable to track the version number
+    _version = 0
+
+    # Decorator to create a class method
+    @classmethod
+    def versionCount(cls):
+        # Must number each SLICC state machine in ascending order from 0.
+        # Each machine of the same type should have a unique version number.
+        cls._version += 1
+        return cls._version - 1
+
     def __init__(
-        self, l2_size, l2_assoc, network, num_l2Caches, cache_line_size
+        self,
+        l2_size,
+        l2_assoc,
+        num_l2Caches,
+        ruby_system,
+        clk_domain: ClockDomain,
+        cache_line_size,
     ):
-        super().__init__(network, cache_line_size)
+        super().__init__()
 
-        # This is the cache memory object that stores the cache data and tags.
+        self.version = self.versionCount()
+        self._cache_line_size = cache_line_size
+
+        """
+        This is the cache memory object that stores the cache data and tags.
+        NOTE: You cannot use things like `self.cacheMemory = RubyCache(...)`
+        here because the name self.L2cache is reserved in
+        `build/X86_debug/mem/ruby/protocol/L2Cache_Controller.py`.
+        If you use any other name (e.g., cacheMemory), when calling 
+        `m5.instantiate()` in the top config file, an error message like the
+        following will show up:
+        `fatal: system.caches.network.ext_links2.ext_node.L2cache without
+        default or user set value`.
+        This is because `L2Cache_Controller` does not have an attribute that
+        is named as `cacheMemory`, leaving the attribute `L2cache` undefined.
+        """
         self.L2cache = RubyCache(
             size=l2_size,
             assoc=l2_assoc,
             start_index_bit=self.getIndexBit(num_l2Caches),
         )
 
+        self.ruby_system = ruby_system # Don't forget this!
+        self.clk_domain = clk_domain
         self.transitions_per_cycle = 4
+        self.connectQueues(ruby_system.network)
 
     def getIndexBit(self, num_l2caches):
         l2_bits = int(math.log(num_l2caches, 2))
         bits = int(math.log(self._cache_line_size, 2)) + l2_bits
         return bits
 
-    @overrides(AbstractL2Cache)
     def connectQueues(self, network):
         self.DirRequestFromL2Cache = MessageBuffer()
         self.DirRequestFromL2Cache.out_port = network.in_port
         self.L1RequestFromL2Cache = MessageBuffer()
         self.L1RequestFromL2Cache.out_port = network.in_port
+        # When using DDR3_1600_8x8 as the main memory and all other buffers
+        # in the system are set to `ordered`, this buffer must be set
+        # to unordered. Or, a panic message that says "FIFO ordering violated"
+        # will be printed.
         self.responseFromL2Cache = MessageBuffer()
         self.responseFromL2Cache.out_port = network.in_port
         self.unblockToL2Cache = MessageBuffer()

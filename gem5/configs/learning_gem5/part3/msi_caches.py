@@ -41,7 +41,7 @@ from m5.defines import buildEnv
 from m5.util import fatal, panic
 
 from m5.objects import *
-
+from pprint import pprint
 
 class MyCacheSystem(RubySystem):
     def __init__(self):
@@ -97,9 +97,8 @@ class MyCacheSystem(RubySystem):
 
         # After creating the sequencers, we set the sequencer variable on each L1 cache controller.
         # We put the controllers in an order such that the first
-        # N (N=#CPUs) of them are the L1 caches which need a sequencer pointer
+        # N (N=#CPUs) of them are the L1 caches which need a sequencer pointer.
         for i, c in enumerate(self.controllers[0 : len(self.sequencers)]):
-            # TODO: How this works? What does this do? What is c? Is it a local variable?
             c.sequencer = self.sequencers[i]
 
         self.num_of_sequencers = len(self.sequencers)
@@ -153,11 +152,19 @@ class L1Cache(L1Cache_Controller):
         self.cacheMemory = RubyCache(
             size="16kB", assoc=8, start_index_bit=self.getBlockSizeBits(system)
         )
+        
         self.clk_domain = cpu.clk_domain
-        # TODO: What will happen when assigning True to send_evictions?
+
         self.send_evictions = self.sendEvicts(cpu)
+        """
+        Must assign `ruby_system` to the `self` instance of the class. Or, an error message
+        "Error in unproxying param 'ruby_system' of system.caches.controllers0.cacheMemory"
+        will be printed.
+        """
         self.ruby_system = ruby_system
+
         self.connectQueues(ruby_system)
+        
 
     # This function returns the number of bits in byte offset field.
     def getBlockSizeBits(self, system):

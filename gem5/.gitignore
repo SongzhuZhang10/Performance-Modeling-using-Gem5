@@ -32,7 +32,6 @@ m5out
 configs/example/memcheck.cfg
 configs/dram/lowp_sweep.cfg
 .pyenv
-.vscode
 cpu_tests/benchmarks/bin/arm/FloatMM
 cpu_tests/benchmarks/bin/arm/Bubblesort
 run.log
