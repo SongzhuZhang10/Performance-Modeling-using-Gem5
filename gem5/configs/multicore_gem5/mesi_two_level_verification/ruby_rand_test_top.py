@@ -69,7 +69,10 @@ import os, argparse, sys, time
 from m5.stats.gem5stats import get_simstat
 
 from pprint import pprint
+
+# The conig file your created for the entire 2-level MESI Ruby cache system is imported here.
 from test_cache_system import TestCacheSystem
+
 #import pdb; pdb.set_trace()
 
 if buildEnv["PROTOCOL"] != "MESI_Two_Level":
@@ -84,7 +87,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--max_mem_reqs",
     metavar="N",
-    default=10,
+    default=1200,
     help="Stop after N loads"
 )
 
@@ -184,7 +187,7 @@ system.mem_ctrl.dram.range = system.mem_ranges[0]
 
 # Create the ruby random tester
 system.tester = RubyTester(
-    # NOTE: Because the flush type Ruby request type is not supported by the SLICC
+    # NOTE: Because the flush type Ruby request is not supported by the SLICC
     # implementation of the cache coherence protocol, one must set this to
     # `Flase`. Or, a panic message will be issued when running the simulation.
     check_flush=False,

@@ -39,7 +39,7 @@ Usage:
 ```
 scons build/X86/gem5.opt
 ./build/X86/gem5.opt \
-    configs/example/gem5_library/x86-npb-benchmarks.py \
+    configs/multicore_gem5/x86-npb-benchmarks.py \
     --benchmark <benchmark_name> \
     --size <benchmark_class>
 
@@ -49,7 +49,7 @@ build/X86_fast/gem5.fast \
 ```
 
 Example:
-build/X86_fast/gem5.fast  configs/multicore_gem5/x86-npb-benchmarks.py --benchmark='is' --size='A'
+build/X86_fast/gem5.fast  configs/multicore_gem5/x86-npb-benchmarks.py --benchmark='ep' --size='A'
 """
 
 import argparse
@@ -73,7 +73,7 @@ from m5.stats.gem5stats import get_simstat
 from m5.util import warn
 
 requires(
-    isa_required = ISA.X86,
+    isa_required=ISA.X86,
     coherence_protocol_required=CoherenceProtocol.MESI_TWO_LEVEL,
     kvm_required=False,
 )
@@ -191,7 +191,7 @@ board = X86Board(
 )
 
 """
-Here we set the FS workload, i.e., npb benchmark program
+Here we set the FS workload, i.e., npb benchmark program.
 After simulation has ended you may inspect
 `m5out/system.pc.com_1.device` to the stdout, if any.
 

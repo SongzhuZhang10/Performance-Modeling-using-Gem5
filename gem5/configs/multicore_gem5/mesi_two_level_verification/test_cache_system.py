@@ -27,25 +27,21 @@
 """
 ***********************************************
 *                                             *
-*          My Python Program's Name           *
+*  Config for 2-level MESI Ruby cache system  *
 *                                             *
 ***********************************************
 
-Author: Your Name
-Date: Today's date
+Author: Songzhu Zhang
+Date: 09/06/2023
 
 Description:
-This program does something useful.
+This is the top config file used to config the 2-level MESI Ruby cache system.
+To verify the functionality of the 2-level MESI Ruby cache system, one can
+import this module in the `ruby_rand_test_top.py`.
 
 Usage:
-python my_program.py [options] [arguments]
+Not a standalone module. Can only be imported by other modules.
 
-Options:
--h, --help     Show help message and exit
--v, --verbose  Enable verbose mode
-
-Examples:
-python my_program.py -v
 """
 
 from m5.defines import buildEnv

@@ -13,7 +13,7 @@ typings/
 
 __pycache__
 gem5/tests/test-progs/threads/bin/x86/linux/threads
-gem5/fs_run.log.bak
+gem5/*.log.bak
 gem5/results/Granet/config.dot
 gem5/results/Granet/config.dot.pdf
 gem5/results/Granet/config.dot.svg
@@ -24,3 +24,5 @@ gem5/results/Granet/config.system.cache_hierarchy.ruby_system.dot.svg
 gem5/results/Granet/stats.txt
 gem5/tests/test-progs/threads/bin/x86/linux/threads
 gem5/tests/test-progs/threads/bin/x86/linux/threads
+gem5/results/*.txt
+*.log

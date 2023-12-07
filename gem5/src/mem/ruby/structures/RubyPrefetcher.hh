@@ -134,6 +134,14 @@ class RubyPrefetcher : public SimObject
             /** Address to which this filter entry refers. */
             Addr addr;
             /** Counter of the number of times this entry has been hit. */
+            /**
+             * It records the number of misses on this block address when its
+             * prefetch request has NOT been issued (i.e., not in any of the
+             * active prefetch stream).
+             * When this value reaches the threshold specified by
+             * `m_train_misses`, a new prefetch stream is allocated to this
+             * block address.
+             */
             uint32_t hits;
 
             UnitFilterEntry(Addr _addr = 0)
@@ -144,6 +152,12 @@ class RubyPrefetcher : public SimObject
 
         struct NonUnitFilterEntry : public UnitFilterEntry
         {
+            /**
+             * The `hit` has a different meaning in this struct than in its
+             * parent struct.
+             * It records the number of stride hit (i.e., matching between the
+             * current actual stride and the previous actual stride).
+             */
             /** Stride (in # of cache lines). */
             int stride;
 
@@ -169,6 +183,11 @@ class RubyPrefetcher : public SimObject
         uint32_t getLRUindex(void);
 
         //! allocate a new stream buffer at a specific index
+        /**
+         * This function replaces the PrefetchEntry in `m_array` array (an
+         * array of the active prefetch streams) with index specified by the
+         * argument `index`.
+         */
         void initializeStream(Addr address, int stride,
             uint32_t index, const RubyRequestType& type);
 

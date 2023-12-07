@@ -26,7 +26,7 @@
 """
 ******************************************************************************
 *                                                                            *
-* Ruby Random Test config for MESI Directory Chip Multi-Processor (CMP).     *
+* SE Test config for MESI Directory Chip Multi-Processor (CMP).              *
 *                                                                            *
 ******************************************************************************
 
@@ -38,13 +38,6 @@ CMP refers to a type of multi-core processor design where multiple processing
 units (cores) share a single physical chip, as opposed to multiple physical
 chips connected via an interconnect. In this design, each core has access to
 its own L1 cache, but multiple cores may share a higher-level cache or memory.
-
-In a CMP system, when a processor wants to read or write to a memory location,
-it first checks its own L1 cache. If the data is not in the cache, it sends a
-request to the MESI directory to check if another processor has the data. If
-another processor has the data, the MESI directory will ensure that the data
-is transferred to the requesting processor's cache and all other copies of the
-data are invalidated to maintain cache coherency.
 
 NOTE: To run the multi-threaded C++ program using this config, one must ensure
 that the `network_class` option is `SimplePt2Pt`. Other network classes are
@@ -129,17 +122,20 @@ in the configuration script.
 """
 args = parser.parse_args()
 
-# Set the default cache size and associativity to be very small to encourage
-# races between requests and writebacks.
-
-args.l1d_size = "256B"
+'''
+Note that when ruby prefetcher is used, the following parameters must be
+set to appropriate values (e.g., cannot be too small). Or, the error message
+`packet.hh:1214: T* gem5::Packet::getPtr() [with T = unsigned char]:
+Assertion `flags.isSet(STATIC_DATA|DYNAMIC_DATA)' failed` will be encountered.
+'''
+args.l1d_size = "16kB"
 args.l1d_assoc = 2
 
-args.l1i_size = "256B"
+args.l1i_size = "16kB"
 args.l1i_assoc = 2
 
-args.l2_size = "512B"
-args.l2_assoc = 2
+args.l2_size = "128kB"
+args.l2_assoc = 4
 
 print("num_cpus: ", args.num_cpus)
 print("num_l2Caches: ", args.num_l2Caches)

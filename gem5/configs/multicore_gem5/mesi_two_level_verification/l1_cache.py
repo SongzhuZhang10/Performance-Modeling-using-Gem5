@@ -39,6 +39,11 @@ This config file configures the L1Cache_Controller class defined in
 `build/X86_debug/mem/ruby/protocol/L1Cache_Controller.py`.
 
 It is customized to support Ruby ramdon test.
+
+To use the `RubyPrefetcher` SimObject in the L1 cache, one must properply
+declare a variable of type `RubyPrefetcher *` and use it in defining the L1
+cache coherence protocol in the SLICC fule located in
+`src/mem/ruby/protocol/MESI_Two_Level-L1cache.sm`.
 """
 
 import math
@@ -92,6 +97,8 @@ class L1Cache(L1Cache_Controller):
             assoc=l1i_assoc,
             start_index_bit=self.getBlockSizeBits(),
             is_icache=True,
+            # default value for replacement_policy
+            replacement_policy = TreePLRURP()
         )
 
         self.L1Dcache = RubyCache(
@@ -99,11 +106,12 @@ class L1Cache(L1Cache_Controller):
             assoc=l1d_assoc,
             start_index_bit=self.getBlockSizeBits(),
             is_icache=False,
+            replacement_policy = TreePLRURP()
         )
 
         self.l2_select_num_bits = int(math.log(num_l2Caches, 2))
         self.clk_domain = clk_domain
-        self.prefetcher = RubyPrefetcher()
+        self.prefetcher = RubyPrefetcher() # Add prefetcher to into the L1$
         self.send_evictions = True
         self.transitions_per_cycle = 4
         """
@@ -111,7 +119,7 @@ class L1Cache(L1Cache_Controller):
         Otherwise, packets with invalid data will be prefetched, leading to
         errors in the function gem5::Packet::getPtr()
         """
-        self.enable_prefetch = False
+        self.enable_prefetch = True
 
         self.ruby_system = ruby_system # Must do this!
         self.connectQueues(ruby_system.network)

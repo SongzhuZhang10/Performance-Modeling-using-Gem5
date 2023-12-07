@@ -5,14 +5,19 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/X86_debug/gem5.debug",
+            "program": "${workspaceFolder}/build/X86_MESI_debug/gem5.debug",
             "args": [
-                "${workspaceFolder}/configs/multicore_gem5/mesi_two_level_ruby_random_test/ruby_random_test_MESI.py"
+                /**
+                 * Note that ruby_rand_test_top.py cannot be used for debugging the Ruby prefetcher SimObject
+                 * because it does not trigger any C++ code of the Ruby prefetcher.
+                 */
+                "${workspaceFolder}/configs/multicore_gem5/mesi_two_level_verification/mesi_se_top.py"
+
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": true,
+            "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
                 // A list of GDB commands to be executed automatically when
@@ -27,7 +32,7 @@
                     // When set to true, which means that if the command fails
                     // for any reason, the debugging session will continue
                     // without interruption.
-                    "ignoreFailures": false
+                    "ignoreFailures": true
                 }
             ],
             "miDebuggerPath": "/usr/bin/gdb" // Path to GDB on your system

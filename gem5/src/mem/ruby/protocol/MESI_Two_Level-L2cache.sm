@@ -470,7 +470,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(d_sendDataToRequestor, "d", desc="Send data from cache to reqeustor") {
+  action(d_sendDataToRequestor, "d", desc="Send data from L2 cache to reqeustor") {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
         assert(is_valid(cache_entry));
@@ -489,7 +489,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(dd_sendExclusiveDataToRequestor, "dd", desc="Send data from cache to reqeustor") {
+  action(dd_sendExclusiveDataToRequestor, "dd", desc="Send exclusive data from L2 cache to reqeustor") {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
         assert(is_valid(cache_entry));
@@ -523,7 +523,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(e_sendDataToGetSRequestors, "e", desc="Send data from cache to all GetS IDs") {
+  action(e_sendDataToGetSRequestors, "e", desc="Send data from L2$ to all GetS IDs in L1$") {
     assert(is_valid(tbe));
     assert(tbe.L1_GetS_IDs.count() > 0);
     enqueue(responseL2Network_out, ResponseMsg, to_l1_latency) {
@@ -537,7 +537,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(ex_sendExclusiveDataToGetSRequestors, "ex", desc="Send data from cache to all GetS IDs") {
+  action(ex_sendExclusiveDataToGetSRequestors, "ex", desc="Send exclusive data from L2$ to all GetS IDs in L1$") {
     assert(is_valid(tbe));
     assert(tbe.L1_GetS_IDs.count() == 1);
     enqueue(responseL2Network_out, ResponseMsg, to_l1_latency) {
@@ -647,7 +647,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(mr_writeDataToCacheFromRequest, "mr", desc="Write data from response queue to cache") {
+  action(mr_writeDataToCacheFromRequest, "mr", desc="Write data from L1 request queue to cache") {
     peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(cache_entry));
       if (in_msg.Dirty) {
@@ -657,7 +657,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(q_updateAck, "q", desc="update pending ack count") {
+  action(q_updateAck, "q", desc="Update pending ack count") {
     peek(responseL2Network_in, ResponseMsg) {
       assert(is_valid(tbe));
       tbe.pendingAcks := tbe.pendingAcks - in_msg.AckCount;
@@ -768,7 +768,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(mm_markExclusive, "\m", desc="set the exclusive owner") {
+  action(mm_markExclusive, "\m", desc="Set the exclusive owner") {
     peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(cache_entry));
       cache_entry.Sharers.clear();
@@ -777,7 +777,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
     }
   }
 
-  action(mmu_markExclusiveFromUnblock, "\mu", desc="set the exclusive owner") {
+  action(mmu_markExclusiveFromUnblock, "\mu", desc="Set the exclusive owner") {
     peek(L1unblockNetwork_in, ResponseMsg) {
       assert(is_valid(cache_entry));
       cache_entry.Sharers.clear();

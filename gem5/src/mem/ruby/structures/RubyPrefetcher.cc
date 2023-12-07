@@ -94,9 +94,16 @@ RubyPrefetcher::observeMiss(Addr address, const RubyRequestType& type)
     rubyPrefetcherStats.numMissObserved++;
 
     // check to see if we have already issued a prefetch for this block
+    /**
+     * Issues found here:
+     *  - `getPrefetchEntry` makes no use of `index` in its definition.
+     *  - `index` and pfEntry->requestIssued[index] are always 0.
+     *  - variables `requestIssued` and `requestCompleted` never get modified.
+     */
     uint32_t index = 0;
     PrefetchEntry *pfEntry = getPrefetchEntry(line_addr, index);
     if (pfEntry != NULL) {
+        // There is a matching entry in the array of active prefetch stream.
         if (pfEntry->requestIssued[index]) {
             if (pfEntry->requestCompleted[index]) {
                 // We prefetched too early and now the prefetch block no
@@ -111,6 +118,7 @@ RubyPrefetcher::observeMiss(Addr address, const RubyRequestType& type)
                 return;
             }
         } else {
+            // If there's no matching entry in the array of active prefetch stream.
             // The request is still in the prefetch queue of the controller.
             // Or was evicted because of other requests.
             return;
@@ -224,7 +232,8 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
     Addr page_addr = pageAddress(mystream->m_address);
     Addr line_addr = makeLineAddress(mystream->m_address);
 
-    // insert a number of prefetches into the prefetch table
+    // insert a number of prefetches (excluding the cache line of the
+    // current address) into the prefetch table
     for (int k = 0; k < m_num_startup_pfs; k++) {
         line_addr = makeNextStrideAddress(line_addr, stride);
         // possibly stop prefetching at page boundaries
@@ -240,6 +249,8 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
         // launch prefetch
         rubyPrefetcherStats.numPrefetchRequested++;
         DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
+        // `enqueuePrefetch` is defined in SLICC and its generated C++ file.
+        // TODO: What does this function do?
         m_controller->enqueuePrefetch(line_addr, m_array[index].m_type);
     }
 
@@ -257,6 +268,9 @@ RubyPrefetcher::getPrefetchEntry(Addr address, uint32_t &index)
             for (int j = 0; j < m_num_startup_pfs; j++) {
                 if (makeNextStrideAddress(m_array[i].m_address,
                     -(m_array[i].m_stride*j)) == address) {
+                    // Because m_address is updated to be the last address
+                    // prefetched, we need to use negative stride values to
+                    // search for the target address.
                     return &(m_array[i]);
                 }
             }
@@ -274,6 +288,7 @@ RubyPrefetcher::accessUnitFilter(CircularQueue<UnitFilterEntry>* const filter,
             entry.addr = makeNextStrideAddress(entry.addr, stride);
             entry.hits++;
             if (entry.hits >= m_train_misses) {
+            // if cache miss happens to this addr has happened enough number of times
                 // Allocate a new prefetch stream
                 initializeStream(line_addr, stride, getLRUindex(), type);
             }
@@ -306,12 +321,17 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
                 // check that the stride matches (for the last N times)
                 if (delta == entry.stride) {
                     // -> stride hit
-                    // increment count (if > 2) allocate stream
+                    // increment count (if > m_train_misses) allocate a stream
                     entry.hits++;
                     if (entry.hits > m_train_misses) {
-                        // This stride HAS to be the multiplicative constant of
-                        // dataBlockBytes (bc makeNextStrideAddress is
-                        // calculated based on this multiplicative constant!)
+                        /**
+                         * This `stride` HAS to be the multiplicative constant
+                         * of dataBlockBytes (bc makeNextStrideAddress is
+                         * calculated based on this multiplicative constant!).
+                         * In short, `stride` and `entry.stride` are both
+                         * measured in terms of address difference, which is
+                         * equivalent to # bytes.
+                         */
                         const int stride = entry.stride /
                             RubySystem::getBlockSizeBytes();
 
@@ -322,7 +342,7 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
                             type);
                     }
                 } else {
-                    // If delta didn't match reset entry's hit count
+                    // If delta didn't match, reset entry's hit count
                     entry.hits = 0;
                 }
 
@@ -337,6 +357,7 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
     }
 
     // not found: enter this address in the table
+    // head of the circular queue may be overwritten if it is already full.
     nonUnitFilter.push_back(NonUnitFilterEntry(line_addr));
 
     return false;
@@ -378,6 +399,9 @@ RubyPrefetcher::print(std::ostream& out) const
 Addr
 RubyPrefetcher::pageAddress(Addr addr) const
 {
+    /**
+     * @param pageShift Number of bits to mask to get a page number 
+     */
     return mbits<Addr>(addr, 63, pageShift);
 }
 
