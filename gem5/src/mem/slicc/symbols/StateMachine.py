@@ -63,6 +63,7 @@ python_class_map = {
     "MessageBuffer": "MessageBuffer",
     "DMASequencer": "DMASequencer",
     "RubyPrefetcher": "RubyPrefetcher",
+    "PythiaPrefetcher": "PythiaPrefetcher",
     "Cycles": "Cycles",
 }
 
@@ -104,6 +105,8 @@ class StateMachine(Symbol):
             self.symtab.registerSym(param.ident, var)
 
             if str(param.type_ast.type) == "RubyPrefetcher":
+                self.prefetchers.append(var)
+            elif str(param.type_ast.type) == "PythiaPrefetcher":
                 self.prefetchers.append(var)
 
         self.states = OrderedDict()

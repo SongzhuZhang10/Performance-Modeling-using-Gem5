@@ -89,7 +89,7 @@ RubyPrefetcherStats::RubyPrefetcherStats(statistics::Group *parent)
 void
 RubyPrefetcher::observeMiss(Addr address, const RubyRequestType& type)
 {
-    DPRINTF(RubyPrefetcher, "Observed miss for %#x\n", address);
+    DPRINTF(RubyPrefetcher, "Observed miss for 0x%6x\n", address);
     Addr line_addr = makeLineAddress(address);
     rubyPrefetcherStats.numMissObserved++;
 
@@ -98,7 +98,7 @@ RubyPrefetcher::observeMiss(Addr address, const RubyRequestType& type)
      * Issues found here:
      *  - `getPrefetchEntry` makes no use of `index` in its definition.
      *  - `index` and pfEntry->requestIssued[index] are always 0.
-     *  - variables `requestIssued` and `requestCompleted` never get modified.
+     *  - `requestIssued` and `requestCompleted` never get modified.
      */
     uint32_t index = 0;
     PrefetchEntry *pfEntry = getPrefetchEntry(line_addr, index);
@@ -144,7 +144,7 @@ void
 RubyPrefetcher::observePfMiss(Addr address)
 {
     rubyPrefetcherStats.numPartialHits++;
-    DPRINTF(RubyPrefetcher, "Observed partial hit for %#x\n", address);
+    DPRINTF(RubyPrefetcher, "Observed partial hit for 0x%6x\n", address);
     issueNextPrefetch(address, NULL);
 }
 
@@ -152,7 +152,7 @@ void
 RubyPrefetcher::observePfHit(Addr address)
 {
     rubyPrefetcherStats.numHits++;
-    DPRINTF(RubyPrefetcher, "Observed hit for %#x\n", address);
+    DPRINTF(RubyPrefetcher, "Observed hit for 0x%6x\n", address);
     issueNextPrefetch(address, NULL);
 }
 
@@ -191,7 +191,7 @@ RubyPrefetcher::issueNextPrefetch(Addr address, PrefetchEntry *stream)
     rubyPrefetcherStats.numPrefetchRequested++;
     stream->m_address = line_addr;
     stream->m_use_time = m_controller->curCycle();
-    DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
+    DPRINTF(RubyPrefetcher, "DEBUG: Requesting prefetch for addr 0x%6x in issueNextPrefetch\n", line_addr);
     m_controller->enqueuePrefetch(line_addr, stream->m_type);
 }
 
@@ -248,7 +248,7 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
         // launch prefetch
         rubyPrefetcherStats.numPrefetchRequested++;
-        DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
+        DPRINTF(RubyPrefetcher, "DEBUG: Requesting prefetch for addr 0x%6x in initializeStream\n", line_addr);
         // `enqueuePrefetch` is defined in SLICC and its generated C++ file.
         // TODO: What does this function do?
         m_controller->enqueuePrefetch(line_addr, m_array[index].m_type);

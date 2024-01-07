@@ -86,7 +86,8 @@
         "cfenv": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp",
-        "*.sm": "c"
+        "*.sm": "c",
+        "cassert": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled",
     "python.analysis.typeCheckingMode": "basic",

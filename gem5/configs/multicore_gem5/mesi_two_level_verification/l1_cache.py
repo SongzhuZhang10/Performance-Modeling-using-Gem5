@@ -40,10 +40,9 @@ This config file configures the L1Cache_Controller class defined in
 
 It is customized to support Ruby ramdon test.
 
-To use the `RubyPrefetcher` SimObject in the L1 cache, one must properply
-declare a variable of type `RubyPrefetcher *` and use it in defining the L1
-cache coherence protocol in the SLICC fule located in
-`src/mem/ruby/protocol/MESI_Two_Level-L1cache.sm`.
+To use a prefetcher SimObject in the L1 cache, one must properly declare the
+prefetcher pointer and use it in the cache coherence protocol in the SLICC file
+located in `src/mem/ruby/protocol/MESI_Two_Level-L1cache.sm`.
 """
 
 import math
@@ -75,6 +74,8 @@ class L1Cache(L1Cache_Controller):
         cache_line_size,
         ruby_system,
         clk_domain: ClockDomain,
+        prefetcher_name=PythiaPrefetcher,
+        enable_l1_prefetch=False
     ):
         """
         Create an L1 cache controller that consists of both instruction
@@ -111,15 +112,16 @@ class L1Cache(L1Cache_Controller):
 
         self.l2_select_num_bits = int(math.log(num_l2Caches, 2))
         self.clk_domain = clk_domain
-        self.prefetcher = RubyPrefetcher() # Add prefetcher to into the L1$
+
+        self.enable_l1_prefetch = enable_l1_prefetch
+
+        if prefetcher_name == "RubyPrefetcher":
+            self.prefetcher = RubyPrefetcher()
+        elif prefetcher_name == "PythiaPrefetcher":
+            self.prefetcher = PythiaPrefetcher()
+
         self.send_evictions = True
         self.transitions_per_cycle = 4
-        """
-        Prefetch only works in FS mode and thus can only be enabled in FS mode.
-        Otherwise, packets with invalid data will be prefetched, leading to
-        errors in the function gem5::Packet::getPtr()
-        """
-        self.enable_prefetch = True
 
         self.ruby_system = ruby_system # Must do this!
         self.connectQueues(ruby_system.network)

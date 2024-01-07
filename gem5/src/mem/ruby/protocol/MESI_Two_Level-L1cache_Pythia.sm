@@ -39,51 +39,50 @@
  */
 
 machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
- : Sequencer * sequencer;
-   CacheMemory * L1Icache;
-   CacheMemory * L1Dcache;
-   RubyPrefetcher * prefetcher;
-   int l2_select_num_bits;
-   Cycles l1_request_latency := 2;
-   Cycles l1_response_latency := 2;
-   Cycles to_l2_latency := 1;
-   bool send_evictions;
-   bool enable_l1_prefetch := "False";
+  : Sequencer * sequencer;
+    CacheMemory * L1Icache;
+    CacheMemory * L1Dcache;
+    PythiaPrefetcher * prefetcher;
+    int l2_select_num_bits;
+    Cycles l1_request_latency := 2;
+    Cycles l1_response_latency := 2;
+    Cycles to_l2_latency := 1;
+    bool send_evictions;
+    bool enable_l1_prefetch := "False"; // controlled by the top config file
 
-   // Message Queues
-   // From this node's L1 cache TO the network
+    // Message Queues
+    // From this node's L1 cache to the network
 
-   // a local L1 -> this L2 bank, currently ordered with directory forwarded requests
-   MessageBuffer * requestFromL1Cache, network="To", virtual_network="0",
-        vnet_type="request";
+    // a local L1 -> this L2 bank, currently ordered with directory forwarded requests
+    MessageBuffer * requestFromL1Cache, network="To", virtual_network="0",
+      vnet_type="request";
 
-   // a local L1 -> this L2 bank
-   MessageBuffer * responseFromL1Cache, network="To", virtual_network="1",
-        vnet_type="response";
+    // a local L1 -> this L2 bank
+    MessageBuffer * responseFromL1Cache, network="To", virtual_network="1",
+      vnet_type="response";
 
-/*
-The L1 cache sends an unblock message to the L2 cache when it has completed a
-memory access that was blocked due to a cache miss and has received the
-requested data from the L2 cache. The unblock message is sent to inform the L2
-cache that
-1. the L1 cache is ready to receive new requests because it is no longer
-blocked waiting for data.
-2. the L2 cache can now proceed with any dependent memory accesses that were
-blocked due to the previous access because the requested data is now available
-in the L1 cache.
-*/
-   MessageBuffer * unblockFromL1Cache, network="To", virtual_network="2",
-        vnet_type="unblock";
+  /**
+   * The L1 cache sends an unblock message to the L2 cache when it has
+   * completed a memory access that was blocked due to a cache miss and has
+   * received the requested data from the L2 cache. The unblock message is sent
+   * to inform the L2 cache that
+   *  1. the L1 cache is ready to receive new requests because it is no longer
+   * blocked waiting for data.
+   *  2. the L2 cache can now proceed with any dependent memory accesses that
+   * were blocked due to the previous access because the requested data is now
+   * available in the L1 cache.
+   */
+  MessageBuffer * unblockFromL1Cache, network="To", virtual_network="2",
+    vnet_type="unblock";
 
+  // To this node's L1 cache FROM the network
+  // a L2 bank -> this L1
+  MessageBuffer * requestToL1Cache, network="From", virtual_network="2",
+    vnet_type="request";
 
-   // To this node's L1 cache FROM the network
-   // a L2 bank -> this L1
-   MessageBuffer * requestToL1Cache, network="From", virtual_network="2",
-        vnet_type="request";
-
-   // a L2 bank -> this L1
-   MessageBuffer * responseToL1Cache, network="From", virtual_network="1",
-        vnet_type="response";
+  // a L2 bank -> this L1
+  MessageBuffer * responseToL1Cache, network="From", virtual_network="1",
+    vnet_type="response";
 
   // Request Buffer for prefetches
   MessageBuffer * optionalQueue;
@@ -119,53 +118,53 @@ in the L1 cache.
   // EVENTS
   enumeration(Event, desc="Cache events") {
     // L1 events
-    Load,            desc="Load request from the home processor";
-    Ifetch,          desc="I-fetch request from the home processor";
-    Store,           desc="Store request from the home processor";
+    Load,               desc="Load request from the home processor";
+    Ifetch,             desc="I-fetch request from the home processor";
+    Store,              desc="Store request from the home processor";
 
-    Inv,           desc="Invalidate request from L2 bank";
+    Inv,                desc="Invalidate request from L2 bank";
 
     // internal generated request
-    L1_Replacement,  desc="L1 Replacement", format="!r";
+    L1_Replacement,     desc="L1 Replacement", format="!r";
     PF_L1_Replacement,  desc="Prefetch L1 Replacement", format="!pr";
 
     // other requests
-    Fwd_GETX,   desc="GETX from other processor";
-    Fwd_GETS,   desc="GETS from other processor";
-    Fwd_GET_INSTR,   desc="GET_INSTR from other processor";
+    Fwd_GETX,           desc="GETX from other processor";
+    Fwd_GETS,           desc="GETS from other processor";
+    Fwd_GET_INSTR,      desc="GET_INSTR from other processor";
 
-    Data,       desc="Data for processor";
-    Data_Exclusive,       desc="Data for processor";
+    Data,               desc="Data for processor";
+    Data_Exclusive,     desc="Data for processor";
     DataS_fromL1,       desc="data for GETS request, need to unblock directory";
-    Data_all_Acks,       desc="Data for processor, all acks";
+    Data_all_Acks,      desc="Data for processor, all acks";
 
-    Ack,        desc="Ack for processor";
-    Ack_all,      desc="Last ack for processor";
+    Ack,                desc="Ack for processor";
+    Ack_all,            desc="Last ack for processor";
 
-    WB_Ack,        desc="Ack for replacement";
+    WB_Ack,             desc="Ack for replacement";
 
-    PF_Load,    desc="load request from prefetcher";
-    PF_Ifetch,  desc="instruction fetch request from prefetcher";
-    PF_Store,   desc="exclusive load request from prefetcher";
+    PF_Load,            desc="load request from prefetcher";
+    PF_Ifetch,          desc="instruction fetch request from prefetcher";
+    PF_Store,           desc="exclusive load request from prefetcher";
   }
 
   // TYPES
 
   // CacheEntry
   structure(Entry, desc="...", interface="AbstractCacheEntry" ) {
-    State CacheState,        desc="cache state";
-    DataBlock DataBlk,       desc="data for the block";
-    bool Dirty, default="false",   desc="data is dirty";
-    bool isPrefetch, desc="Set if this block was prefetched and not yet accessed";
+    State CacheState,             desc="cache state";
+    DataBlock DataBlk,            desc="data for the block";
+    bool Dirty, default="false",  desc="data is dirty";
+    bool isPrefetch,              desc="Set if this block was prefetched and not yet accessed";
   }
 
   // TBE fields
   structure(TBE, desc="...") {
-    Addr addr,              desc="Physical address for this TBE";
-    State TBEState,        desc="Transient state";
-    DataBlock DataBlk,                desc="Buffer for the data block";
-    bool Dirty, default="false",   desc="data is dirty";
-    bool isPrefetch,       desc="Set if this was caused by a prefetch";
+    Addr addr,                    desc="Physical address for this TBE";
+    State TBEState,               desc="Transient state";
+    DataBlock DataBlk,            desc="Buffer for the data block";
+    bool Dirty, default="false",  desc="data is dirty";
+    bool isPrefetch,              desc="Set if this was caused by a prefetch";
     int pendingAcks, default="0", desc="number of pending acks";
   }
 
@@ -210,6 +209,7 @@ in the L1 cache.
     return L1Icache_entry;
   }
 
+  /* The addr must correspond to an entry in the D-cache. */
   State getState(TBE tbe, Entry cache_entry, Addr addr) {
     assert((L1Dcache.isTagPresent(addr) && L1Icache.isTagPresent(addr)) == false);
 
@@ -224,7 +224,6 @@ in the L1 cache.
   void setState(TBE tbe, Entry cache_entry, Addr addr, State state) {
     assert((L1Dcache.isTagPresent(addr) && L1Icache.isTagPresent(addr)) == false);
 
-    // MUST CHANGE
     if(is_valid(tbe)) {
       tbe.TBEState := state;
     }
@@ -237,17 +236,17 @@ in the L1 cache.
   AccessPermission getAccessPermission(Addr addr) {
     TBE tbe := TBEs[addr];
     if(is_valid(tbe)) {
-      DPRINTF(RubySlicc, "%s\n", L1Cache_State_to_permission(tbe.TBEState));
+      DPRINTF(PythiaL1Slicc, "%s\n", L1Cache_State_to_permission(tbe.TBEState));
       return L1Cache_State_to_permission(tbe.TBEState);
     }
 
     Entry cache_entry := getCacheEntry(addr);
     if(is_valid(cache_entry)) {
-      DPRINTF(RubySlicc, "%s\n", L1Cache_State_to_permission(cache_entry.CacheState));
+      DPRINTF(PythiaL1Slicc, "%s\n", L1Cache_State_to_permission(cache_entry.CacheState));
       return L1Cache_State_to_permission(cache_entry.CacheState);
     }
 
-    DPRINTF(RubySlicc, "%s\n", AccessPermission:NotPresent);
+    DPRINTF(PythiaL1Slicc, "%s\n", AccessPermission:NotPresent);
     return AccessPermission:NotPresent;
   }
 
@@ -289,7 +288,7 @@ in the L1 cache.
     } else if ((type == RubyRequestType:ST) || (type == RubyRequestType:ATOMIC)) {
       return Event:Store;
     } else {
-      DPRINTF(RubySlicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
+      DPRINTF(PythiaL1Slicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
       error("Invalid RubyRequestType");
     }
   }
@@ -303,7 +302,7 @@ in the L1 cache.
                  (type == RubyRequestType:ATOMIC)) {
           return Event:PF_Store;
       } else {
-          DPRINTF(RubySlicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
+          DPRINTF(PythiaL1Slicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
           error("Invalid RubyRequestType");
       }
   }
@@ -317,8 +316,8 @@ in the L1 cache.
    * typically used for sending messages or requests to other components
    * queueName_out: name/identifier given to the output port
    * *Msg/*Request: type of the things that are sent through this output port
-   * The third argument of `out_port` is the name of the queue that is
-   * associated with this output port.
+   * The third argument of `out_port` is the name of the queue
+   * (i.e., MessageBuffer) that is associated with this output port.
    */ 
   out_port(requestL1Network_out, RequestMsg, requestFromL1Cache);
   out_port(responseL1Network_out, ResponseMsg, responseFromL1Cache);
@@ -332,88 +331,76 @@ in the L1 cache.
   // searches for all entries in the queue, not just the head msg. All
   // msgs in the structure can be invalidated if a demand miss matches.
   in_port(optionalQueue_in, RubyRequest, optionalQueue, desc="...", rank = 3) {
-      if (optionalQueue_in.isReady(clockEdge())) {
-          peek(optionalQueue_in, RubyRequest) {
-              // Instruction Prefetch
-              if (in_msg.Type == RubyRequestType:IFETCH) {
-                  Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
-                  if (is_valid(L1Icache_entry)) {
-                      // The block to be prefetched is already present in the
-                      // cache. We should drop this request.
-                      DPRINTF(RubySlicc, "Instr block %s to be prefetched is already in local L1.\n", L1Icache_entry.DataBlk);
-                      trigger(prefetch_request_type_to_event(in_msg.Type),
-                              in_msg.LineAddress,
-                              L1Icache_entry, TBEs[in_msg.LineAddress]);
-                  }
-
-                  DPRINTF(RubySlicc, "Instr block %s to be prefetched is absent in local L1.\n", L1Icache_entry.DataBlk);
-                  // Check to see if it is in the OTHER L1
-                  Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
-                  if (is_valid(L1Dcache_entry)) {
-                      DPRINTF(RubySlicc, "Instr Block %s to be prefetched is in L1.\n", L1Dcache_entry.DataBlk);
-                      // The block is in the wrong L1 cache. We should drop
-                      // this request.
-                      trigger(prefetch_request_type_to_event(in_msg.Type),
-                              in_msg.LineAddress,
-                              L1Dcache_entry, TBEs[in_msg.LineAddress]);
-                  }
-
-                  DPRINTF(RubySlicc, "Instr Block to be prefetched is absent in local L1.\n");
-                  if (L1Icache.cacheAvail(in_msg.LineAddress)) {
-                      DPRINTF(RubySlicc, "Space available in L1. Check if the instr block to be prefetched is in L2.\n");
-                      // L1 does't have the line, but we have space for it
-                      // in the L1 so let's see if the L2 has it
-                      trigger(prefetch_request_type_to_event(in_msg.Type),
-                              in_msg.LineAddress,
-                              L1Icache_entry, TBEs[in_msg.LineAddress]);
-                  } else {
-                      // No room in the L1, so we need to make room in the L1
-                      DPRINTF(RubySlicc, "No space in L1. Evict a I-cache block for a prefetched block.\n");
-                      Addr victim := L1Icache.cacheProbe(in_msg.LineAddress);
-                      trigger(Event:PF_L1_Replacement,
-                              victim, getL1ICacheEntry(victim), TBEs[victim]);
-                  }
-              } else {
-                  // Data prefetch
-                  Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
-                  if (is_valid(L1Dcache_entry)) {
-                      DPRINTF(RubySlicc, "Data block %s to be prefetched is already in local L1.\n", L1Dcache_entry.DataBlk);
-                      // The block to be prefetched is already present in the
-                      // cache. We should drop this request.
-                      trigger(prefetch_request_type_to_event(in_msg.Type),
-                              in_msg.LineAddress,
-                              L1Dcache_entry, TBEs[in_msg.LineAddress]);
-                  }
-
-                  DPRINTF(RubySlicc, "Data block %s to be prefetched is absent in local L1.\n", L1Dcache_entry.DataBlk);
-                  // Check to see if it is in the OTHER L1
-                  Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
-                  if (is_valid(L1Icache_entry)) {
-                      DPRINTF(RubySlicc, "Data block %s to be prefetched is in L1.\n", L1Icache_entry.DataBlk);
-                      // The block is in the wrong L1. Just drop the prefetch request.
-                      trigger(prefetch_request_type_to_event(in_msg.Type),
-                              in_msg.LineAddress,
-                              L1Icache_entry, TBEs[in_msg.LineAddress]);
-                  }
-
-                  DPRINTF(RubySlicc, "Data block to be prefetched is absent in L1.\n");
-                  if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
-                      DPRINTF(RubySlicc, "Space available in L1. Check if the data block to be prefetched is in L2.\n");
-                      // L1 does't have the line, but we have space for it in
-                      // the L1 let's see if the L2 has it
-                      trigger(prefetch_request_type_to_event(in_msg.Type),
-                              in_msg.LineAddress,
-                              L1Dcache_entry, TBEs[in_msg.LineAddress]);
-                  } else {
-                      // No room in the L1, so we need to make room in the L1
-                      DPRINTF(RubySlicc, "No space in L1. Evict a D-cache block for a prefetched block.\n");
-                      Addr victim := L1Dcache.cacheProbe(in_msg.LineAddress);
-                      trigger(Event:PF_L1_Replacement,
-                              victim, getL1DCacheEntry(victim), TBEs[victim]);
-                  }
-              }
+    if (optionalQueue_in.isReady(clockEdge())) {
+      peek(optionalQueue_in, RubyRequest) {
+        // Instruction Prefetch
+        if (in_msg.Type == RubyRequestType:IFETCH) {
+          Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
+          if (is_valid(L1Icache_entry)) {
+            DPRINTF(PythiaL1Slicc, "Instr block %s to be prefetched is already in L1 I-Cache.\n", L1Icache_entry.DataBlk);
+            trigger(prefetch_request_type_to_event(in_msg.Type),
+              in_msg.LineAddress,
+              L1Icache_entry,
+              TBEs[in_msg.LineAddress]);
           }
+          // Check to see if it is in the OTHER L1
+          Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
+          if (is_valid(L1Dcache_entry)) {
+            DPRINTF(PythiaL1Slicc, "Warning! Instr Block %s to be prefetched is in L1 D-Cache.\n", L1Dcache_entry.DataBlk);
+            trigger(prefetch_request_type_to_event(in_msg.Type),
+              in_msg.LineAddress,
+              L1Dcache_entry, TBEs[in_msg.LineAddress]);
+          }
+          if (L1Icache.cacheAvail(in_msg.LineAddress)) {
+            DPRINTF(PythiaL1Slicc, "Space available in L1 I-Cache. Check if the instr block to be prefetched is in L2.\n");
+            // L1 does't have the line, but we have space for it in the L1 so let's see if the L2 has it.
+            trigger(prefetch_request_type_to_event(in_msg.Type),
+              in_msg.LineAddress,
+              L1Icache_entry, TBEs[in_msg.LineAddress]);
+          } else {
+            // No room in the L1, so we need to make room in the L1
+            DPRINTF(PythiaL1Slicc, "No space in L1 I-Cache. Evict an I-cache block for a prefetched block.\n");
+            Addr victim := L1Icache.cacheProbe(in_msg.LineAddress);
+            trigger(Event:PF_L1_Replacement,
+              victim, getL1ICacheEntry(victim), TBEs[victim]);
+          }
+        } else {
+          // Data prefetch
+          Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
+          if (is_valid(L1Dcache_entry)) {
+            DPRINTF(PythiaL1Slicc, "Data block %s to be prefetched is already in L1 D-Cache.\n", L1Dcache_entry.DataBlk);
+            trigger(prefetch_request_type_to_event(in_msg.Type),
+              in_msg.LineAddress,
+              L1Dcache_entry, TBEs[in_msg.LineAddress]);
+          }
+
+          DPRINTF(PythiaL1Slicc, "Data block %s to be prefetched is absent in local L1 I/D-Cache.\n", L1Dcache_entry.DataBlk);
+          // Check to see if it is in the OTHER L1
+          Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
+          if (is_valid(L1Icache_entry)) {
+            DPRINTF(PythiaL1Slicc, "Data block %s to be prefetched is in L1 I-Cache.\n", L1Icache_entry.DataBlk);
+            trigger(prefetch_request_type_to_event(in_msg.Type),
+              in_msg.LineAddress,
+              L1Icache_entry, TBEs[in_msg.LineAddress]);
+          }
+
+          DPRINTF(PythiaL1Slicc, "Data block to be prefetched is absent in L1 I/D-Cache.\n");
+          if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
+            DPRINTF(PythiaL1Slicc, "Space available in L1 D-Cache. Check if the data block to be prefetched is in L2.\n");
+            // L1 does't have the line, but we have space for it in the L1 let's see if the L2 has it
+            trigger(prefetch_request_type_to_event(in_msg.Type),
+              in_msg.LineAddress,
+              L1Dcache_entry, TBEs[in_msg.LineAddress]);
+          } else {
+            // No room in the L1, so we need to make room in the L1
+            DPRINTF(PythiaL1Slicc, "No space in L1 D-Cache. Evict a D-cache block for a prefetched block.\n");
+            Addr victim := L1Dcache.cacheProbe(in_msg.LineAddress);
+            trigger(Event:PF_L1_Replacement,
+              victim, getL1DCacheEntry(victim), TBEs[victim]);
+          }
+        }
       }
+    }
   }
 
   // Response  L1 Network - response msg from the L2 bank to this L1 cache
@@ -432,33 +419,33 @@ in the L1 cache.
                getState(tbe, cache_entry, in_msg.addr) == State:IS_I ||
                getState(tbe, cache_entry, in_msg.addr) == State:PF_IS ||
                getState(tbe, cache_entry, in_msg.addr) == State:PF_IS_I) &&
-              machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
+               machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
 
-              trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
+            trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
 
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
-            DPRINTF(RubySlicc, "No pending ack left on DATA response\n");
+            DPRINTF(PythiaL1Slicc, "No pending ack left on DATA response\n");
             trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
           } else {
-            DPRINTF(RubySlicc, "Pending ack of TBE on DATA response: %d\n",
+            DPRINTF(PythiaL1Slicc, "Pending ack of TBE on DATA response: %d\n",
                     getPendingAcks(tbe));
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:ACK) {
           if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
-            DPRINTF(RubySlicc, "No pending ack left on ACK response\n");
+            DPRINTF(PythiaL1Slicc, "No pending ack left on ACK response\n");
             trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe);
           } else {
-            DPRINTF(RubySlicc, "Pending ack of TBE on ACK response: %d\n",
+            DPRINTF(PythiaL1Slicc, "Pending ack of TBE on ACK response: %d\n",
                     getPendingAcks(tbe));
             trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:WB_ACK) {
-          DPRINTF(RubySlicc, "Pending ack of TBE on WB_ACK response: %d\n",
+          DPRINTF(PythiaL1Slicc, "Pending ack of TBE on WB_ACK response: %d\n",
                   getPendingAcks(tbe));
           trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else {
-          DPRINTF(RubySlicc, "Invalid L1 response type: %s\n", CoherenceResponseType_to_string(in_msg.Type));
+          DPRINTF(PythiaL1Slicc, "Invalid L1 response type: %s\n", CoherenceResponseType_to_string(in_msg.Type));
           error("Invalid L1 response type");
         }
       }
@@ -485,7 +472,7 @@ in the L1 cache.
         } else if (in_msg.Type == CoherenceRequestType:GET_INSTR) {
           trigger(Event:Fwd_GET_INSTR, in_msg.addr, cache_entry, tbe);
         } else {
-          DPRINTF(RubySlicc, "Invalid forwarded request type: %s\n", CoherenceRequestType_to_string(in_msg.Type));
+          DPRINTF(PythiaL1Slicc, "Invalid forwarded request type: %s\n", CoherenceRequestType_to_string(in_msg.Type));
           error("Invalid forwarded request type");
         }
       }
@@ -496,7 +483,7 @@ in the L1 cache.
   /**
    * The ruby requests sent directly from the CPU has valid PC values, whereas
    * the ruby requests sent from the prefetcher do not hold valid PC values
-   * because those requests are not induced by instructions.
+   * because those requests are not induced by the actual instructions.
    * For some unknown reason, printing PC values can cause a backtrace of the
    * call stack being generated.
    */
@@ -506,75 +493,66 @@ in the L1 cache.
         if (in_msg.Type == RubyRequestType:IFETCH) { // *** INSTRUCTION ACCESS ***
           Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
           if (is_valid(L1Icache_entry)) {
-            DPRINTF(RubySlicc, "I-cache hit in local L1.\n");
+            DPRINTF(PythiaL1Slicc, "I-cache hit in L1.\n");
             // The tag matches for the L1 I-cache. So, trigger the event IFETCH.
             trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                     L1Icache_entry, TBEs[in_msg.LineAddress]);
           } else {
-            DPRINTF(RubySlicc, "I-cache miss in local L1.\n");
+            DPRINTF(PythiaL1Slicc, "I-cache miss in L1.\n");
             // Check to see if it is in OTHER L1 caches.
-            DPRINTF(RubySlicc, "Checking if the instr is in D-cache.\n");
+            DPRINTF(PythiaL1Slicc, "Checking if the instr is in D-cache.\n");
             Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
             if (is_valid(L1Dcache_entry)) {
-              DPRINTF(RubySlicc, "Instr %s is found in D-cache. I-cache hit in L1.\n", L1Dcache_entry.DataBlk);
+              DPRINTF(PythiaL1Slicc, "Warning! Instr %s is found in D-cache.\n", L1Dcache_entry.DataBlk);
               // The requested block is in other L1$. So, set the L1 block in D-cache to NP/I.
               // This means that once this L1 data block has transitioned to NP/I,
               // there will be a cache miss in D-cache for this block, leading to the code block
-              // that handles I-cache miss to be executed.
+              // that handles I-cache miss being executed.
               trigger(Event:L1_Replacement, in_msg.LineAddress,
-                      L1Dcache_entry, TBEs[in_msg.LineAddress]);
+                L1Dcache_entry, TBEs[in_msg.LineAddress]);
             }
-
-            DPRINTF(RubySlicc, "I-cache miss in L1.\n");
             if (L1Icache.cacheAvail(in_msg.LineAddress)) {
-              DPRINTF(RubySlicc, "Space available in L1. Check if the missing instr is in L2.\n");
+              DPRINTF(PythiaL1Slicc, "Space available in L1. Check if the missing instr is in L2.\n");
               // L1 does not have the requested data, but we have space for it
               // in the L1. So, let's see if the L2 has it.
               trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
-                      L1Icache_entry, TBEs[in_msg.LineAddress]);
+                L1Icache_entry, TBEs[in_msg.LineAddress]);
             } else {
-              DPRINTF(RubySlicc, "No space in L1. Evict an I-cache block.\n");
+              DPRINTF(PythiaL1Slicc, "No space in L1. Evict an I-cache block.\n");
               // Check if the line we want to evict is not locked
               Addr addr := L1Icache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, addr);
-
-              trigger(Event:L1_Replacement, addr,
-                      getL1ICacheEntry(addr), TBEs[addr]);
+              trigger(Event:L1_Replacement, addr, getL1ICacheEntry(addr), TBEs[addr]);
             }
           }
         } else { // *** DATA ACCESS ***
           Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
           if (is_valid(L1Dcache_entry)) {
-            DPRINTF(RubySlicc, "D-cache hit in local L1.\n");
+            DPRINTF(PythiaL1Slicc, "D-cache hit in L1.\n");
             // The tag matches for the L1 D-cache. Cache hit.
             trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                     L1Dcache_entry, TBEs[in_msg.LineAddress]);
           } else {
-            DPRINTF(RubySlicc, "D-cache miss in local L1.\n");
+            DPRINTF(PythiaL1Slicc, "D-cache miss in L1.\n");
             // Check to see if it is in the OTHER L1
-            DPRINTF(RubySlicc, "Checking if the data is in I-cache.\n");
             Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
             if (is_valid(L1Icache_entry)) {
-              DPRINTF(RubySlicc, "Data %s is found in I-cache. D-cache hit in L1.\n", L1Icache_entry.DataBlk);
+              DPRINTF(PythiaL1Slicc, "Warning! Data %s is found in I-cache.\n", L1Icache_entry.DataBlk);
               // The block is in the wrong L1, put the request on the queue to the shared L2
               trigger(Event:L1_Replacement, in_msg.LineAddress,
                       L1Icache_entry, TBEs[in_msg.LineAddress]);
             }
-
-            DPRINTF(RubySlicc, "D-cache miss in L1.\n");
             if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
-              DPRINTF(RubySlicc, "Space available in L1. Check if the missing data is in L2.\n");
-              // L1 does't have the line, but we have space for it
-              // in the L1 let's see if the L2 has it.
+              DPRINTF(PythiaL1Slicc, "Space available in L1. Check if the missing data is in L2.\n");
+              // L1 doe not have the line, but we have space for it in the L1. Check if the L2 has it.
               trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                       L1Dcache_entry, TBEs[in_msg.LineAddress]);
             } else {
               // No room in the L1, so we need to make room in the L1
-              DPRINTF(RubySlicc, "No space in L1. Evict a D-cache block.\n");
+              DPRINTF(PythiaL1Slicc, "No space in L1. Evict a D-cache block.\n");
               // Check if the line we want to evict is not locked
               Addr addr := L1Dcache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, addr);
-
               trigger(Event:L1_Replacement, addr, getL1DCacheEntry(addr), TBEs[addr]);
             }
           }
@@ -583,13 +561,13 @@ in the L1 cache.
     }
   }
   
-  // This function is called in `src/mem/ruby/structures/RubyPrefetcher.cc`.
+  // This function is called in `src/mem/ruby/structures/PythiaPrefetcher.cc`.
   void enqueuePrefetch(Addr address, RubyRequestType type) {
-      enqueue(optionalQueue_out, RubyRequest, 1) {
-          out_msg.LineAddress := address;
-          out_msg.Type := type;
-          out_msg.AccessMode := RubyAccessMode:Supervisor;
-      }
+    enqueue(optionalQueue_out, RubyRequest, 1) {
+      out_msg.LineAddress := address;
+      out_msg.Type := type;
+      out_msg.AccessMode := RubyAccessMode:Supervisor;
+    }
   }
 
   // ACTIONS
@@ -601,7 +579,7 @@ in the L1 cache.
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
                 address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
@@ -618,7 +596,7 @@ in the L1 cache.
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
                 address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
@@ -635,7 +613,7 @@ in the L1 cache.
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
                 address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
@@ -646,22 +624,22 @@ in the L1 cache.
 
   action(pai_issuePfGETINSTR, "pai",
          desc="Issue GETINSTR for prefetch request") {
-      peek(optionalQueue_in, RubyRequest) {
-          enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
-              out_msg.addr := address;
-              out_msg.Type := CoherenceRequestType:GET_INSTR;
-              out_msg.Requestor := machineID;
-              out_msg.Destination.add(
-                  mapAddressToRange(address, MachineType:L2Cache,
-                          l2_select_low_bit, l2_select_num_bits, intToID(0)));
-              out_msg.MessageSize := MessageSizeType:Control;
-              out_msg.Prefetch := in_msg.Prefetch;
-              out_msg.AccessMode := in_msg.AccessMode;
+    peek(optionalQueue_in, RubyRequest) {
+      enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
+        out_msg.addr := address;
+        out_msg.Type := CoherenceRequestType:GET_INSTR;
+        out_msg.Requestor := machineID;
+        out_msg.Destination.add(
+        mapAddressToRange(address, MachineType:L2Cache,
+        l2_select_low_bit, l2_select_num_bits, intToID(0)));
+        out_msg.MessageSize := MessageSizeType:Control;
+        out_msg.Prefetch := in_msg.Prefetch;
+        out_msg.AccessMode := in_msg.AccessMode;
 
-              DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
-                      address, out_msg.Destination);
-          }
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
+        address, out_msg.Destination);
       }
+    }
   }
 
   action(b_issueGETX, "b", desc="Issue GETX") {
@@ -670,10 +648,10 @@ in the L1 cache.
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:GETX;
         out_msg.Requestor := machineID;
-        DPRINTF(RubySlicc, "%s\n", machineID);
+        DPRINTF(PythiaL1Slicc, "%s\n", machineID);
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
                 address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
@@ -682,24 +660,23 @@ in the L1 cache.
     }
   }
 
+  // Same as the `b_issueGETX` action except that the action name is changed.
   action(pb_issuePfGETX, "pb", desc="Issue prefetch GETX") {
-      peek(optionalQueue_in, RubyRequest) {
-          enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
-              out_msg.addr := address;
-              out_msg.Type := CoherenceRequestType:GETX;
-              out_msg.Requestor := machineID;
-              DPRINTF(RubySlicc, "%s\n", machineID);
-
-              out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
+    peek(optionalQueue_in, RubyRequest) {
+      enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
+        out_msg.addr := address;
+        out_msg.Type := CoherenceRequestType:GETX;
+        out_msg.Requestor := machineID;
+        DPRINTF(PythiaL1Slicc, "%s\n", machineID);
+        out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-
-              DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
-                      address, out_msg.Destination);
-              out_msg.MessageSize := MessageSizeType:Control;
-              out_msg.Prefetch := in_msg.Prefetch;
-              out_msg.AccessMode := in_msg.AccessMode;
-          }
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
+                address, out_msg.Destination);
+        out_msg.MessageSize := MessageSizeType:Control;
+        out_msg.Prefetch := in_msg.Prefetch;
+        out_msg.AccessMode := in_msg.AccessMode;
       }
+    }
   }
 
   action(c_issueUPGRADE, "c", desc="Issue GETX") {
@@ -710,7 +687,7 @@ in the L1 cache.
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(RubySlicc, "address: %#x, destination: %s\n",
+        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
                 address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
@@ -832,7 +809,7 @@ in the L1 cache.
 
   action(forward_eviction_to_cpu, "\cc", desc="sends eviction information to the processor") {
     if (send_evictions) {
-      DPRINTF(RubySlicc, "Sending invalidation for %#x to the CPU\n", address);
+      DPRINTF(PythiaL1Slicc, "Sending invalidation for %#x to the CPU\n", address);
       sequencer.evictionCallback(address);
     }
   }
@@ -863,7 +840,7 @@ in the L1 cache.
       out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
       out_msg.MessageSize := MessageSizeType:Response_Control;
-      DPRINTF(RubySlicc, "%#x\n", address);
+      DPRINTF(PythiaL1Slicc, "%#x\n", address);
     }
   }
 
@@ -875,7 +852,7 @@ in the L1 cache.
       out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
       out_msg.MessageSize := MessageSizeType:Response_Control;
-      DPRINTF(RubySlicc, "%#x\n", address);
+      DPRINTF(PythiaL1Slicc, "%#x\n", address);
 
     }
   }
@@ -884,7 +861,7 @@ in the L1 cache.
          desc="Notify sequencer the load completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
     L1Dcache.setMRU(cache_entry);
     sequencer.readCallback(address, cache_entry.DataBlk);
   }
@@ -892,7 +869,7 @@ in the L1 cache.
   action(h_ifetch_hit, "hi", desc="Notify sequencer the instruction fetch completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
     L1Icache.setMRU(cache_entry);
     sequencer.readCallback(address, cache_entry.DataBlk);
   }
@@ -900,7 +877,7 @@ in the L1 cache.
   action(hx_load_hit, "hx", desc="Notify sequencer the load completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
     // Request misses and new replacement policy info is set for new entry.
     // No need to setMRU on external hit.
     sequencer.readCallback(address, cache_entry.DataBlk, true);
@@ -909,7 +886,7 @@ in the L1 cache.
   action(hh_store_hit, "\h", desc="Notify sequencer that store completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
     L1Dcache.setMRU(cache_entry);
     sequencer.writeCallback(address, cache_entry.DataBlk);
     cache_entry.Dirty := true;
@@ -918,7 +895,7 @@ in the L1 cache.
   action(hhx_store_hit, "\hx", desc="Notify sequencer that store completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
     // Request misses and new replacement policy info is set for new entry.
     // No need to setMRU on external hit.
     sequencer.writeCallback(address, cache_entry.DataBlk, true);
@@ -968,7 +945,7 @@ in the L1 cache.
     peek(responseL1Network_in, ResponseMsg) {
       assert(is_valid(tbe));
       tbe.pendingAcks := tbe.pendingAcks - in_msg.AckCount;
-      DPRINTF(RubySlicc, "Pending ack count left after the update: %d\n", tbe.pendingAcks);
+      DPRINTF(PythiaL1Slicc, "Pending ack count left after the update: %d\n", tbe.pendingAcks);
       APPEND_TRANSITION_COMMENT(in_msg.AckCount);
       APPEND_TRANSITION_COMMENT(" p: ");
       APPEND_TRANSITION_COMMENT(tbe.pendingAcks);
@@ -1024,39 +1001,46 @@ in the L1 cache.
     L1Dcache.profileDemandHit();
   }
 
-  action(po_observeHit, "\ph", desc="Inform the prefetcher about the hit") {
-      peek(mandatoryQueue_in, RubyRequest) {
-          if (cache_entry.isPrefetch) {
-              prefetcher.observePfHit(in_msg.LineAddress);
-              cache_entry.isPrefetch := false;
-          }
+  action(po_observeHit, "\ph", desc="Inform the prefetcher about the cache hit") {
+    peek(mandatoryQueue_in, RubyRequest) {
+      if (cache_entry.isPrefetch) {
+        assert(enable_l1_prefetch);
+        prefetcher.observeHit(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
+        cache_entry.isPrefetch := false;
       }
+    }
   }
 
-  action(po_observeMiss, "\po", desc="Inform the prefetcher about the miss") {
-      peek(mandatoryQueue_in, RubyRequest) {
-          if (enable_l1_prefetch) {
-              prefetcher.observeMiss(in_msg.LineAddress, in_msg.Type);
-          }
+  action(po_observeMiss, "\po", desc="Inform the prefetcher about the cache miss") {
+    peek(mandatoryQueue_in, RubyRequest) {
+      if (enable_l1_prefetch) {
+        prefetcher.observeMiss(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
       }
+    }
   }
 
-  action(ppm_observePfMiss, "\ppm",
-         desc="Inform the prefetcher about the partial miss") {
-      peek(mandatoryQueue_in, RubyRequest) {
-          prefetcher.observePfMiss(in_msg.LineAddress);
-      }
+  action(ppm_observePfMiss, "\ppm", desc="Inform the prefetcher about the partial miss") {
+    peek(mandatoryQueue_in, RubyRequest) {
+      assert(enable_l1_prefetch);
+      prefetcher.observePfMiss(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
+    }
   }
 
   action(pq_popPrefetchQueue, "\pq", desc="Pop the prefetch request queue") {
-      optionalQueue_in.dequeue(clockEdge());
+    optionalQueue_in.dequeue(clockEdge());
   }
 
   action(mp_markPrefetched, "mp", desc="Set the isPrefetch flag") {
-      assert(is_valid(cache_entry));
-      cache_entry.isPrefetch := true;
+    assert(is_valid(cache_entry));
+    assert(enable_l1_prefetch);
+    cache_entry.isPrefetch := true;
   }
 
+  action(pf_markPrefetchFill, "\pf", desc="Assert the prefetch fill bit") {
+    assert(cache_entry.isPrefetch);
+    assert(enable_l1_prefetch);
+    prefetcher.prefetch_fill(address);
+  }
 
   //*****************************************************
   // TRANSITIONS
@@ -1321,6 +1305,7 @@ in the L1 cache.
     u_writeDataToL1Cache;
     s_deallocateTBE;
     mp_markPrefetched;
+    pf_markPrefetchFill;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1405,6 +1390,7 @@ in the L1 cache.
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     mp_markPrefetched;
+    pf_markPrefetchFill;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1446,6 +1432,7 @@ in the L1 cache.
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     mp_markPrefetched;
+    pf_markPrefetchFill
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1474,6 +1461,7 @@ in the L1 cache.
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     mp_markPrefetched;
+    pf_markPrefetchFill;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }

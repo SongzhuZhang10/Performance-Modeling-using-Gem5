@@ -246,7 +246,15 @@ structure (TimerTable, inport="yes", external = "yes") {
 }
 
 structure (RubyPrefetcher, external = "yes") {
-    void observeMiss(Addr, RubyRequestType);
-    void observePfHit(Addr);
-    void observePfMiss(Addr);
+  void observeMiss(Addr, RubyRequestType);
+  void observePfHit(Addr);
+  void observePfMiss(Addr);
+}
+
+structure (PythiaPrefetcher, external = "yes") {
+  void trainAndPredict(Addr, Addr, RubyRequestType);
+  void prefetch_fill(Addr);
+  void observeHit(Addr, Addr, RubyRequestType);
+  void observePfMiss(Addr, Addr, RubyRequestType);
+  void observeMiss(Addr, Addr, RubyRequestType);
 }

@@ -70,10 +70,16 @@ DebugFlag('RubyResourceStalls')
 DebugFlag('RubyProtocol')
 DebugFlag('RubyHitMiss')
 
+# For Pythia prefetcher
+DebugFlag('PythiaPrefetcher')
+DebugFlag('PythiaL1')
+DebugFlag('PythiaL1Slicc')
+
 CompoundFlag('Ruby', [ 'RubyQueue', 'RubyNetwork', 'RubyTester',
     'RubyGenerated', 'RubySlicc', 'RubySystem', 'RubyCache',
     'RubyDma', 'RubyPort', 'RubySequencer', 'RubyCacheTrace',
-    'RubyPrefetcher', 'RubyProtocol', 'RubyHitMiss'])
+    'RubyPrefetcher', 'RubyProtocol', 'RubyHitMiss',
+    'PythiaPrefetcher', 'PythiaL1', 'PythiaL1Slicc'])
 
 #
 # Link includes
@@ -111,6 +117,7 @@ MakeInclude('structures/DirectoryMemory.hh')
 MakeInclude('structures/PerfectCacheMemory.hh')
 MakeInclude('structures/PersistentTable.hh')
 MakeInclude('structures/RubyPrefetcher.hh')
+MakeInclude('structures/PythiaPrefetcher.hh')
 MakeInclude('structures/TBEStorage.hh')
 if env['PROTOCOL'] == 'CHI':
     MakeInclude('structures/MN_TBEStorage.hh')

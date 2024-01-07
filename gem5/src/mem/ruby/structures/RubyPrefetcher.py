@@ -60,6 +60,13 @@ class RubyPrefetcher(SimObject):
         """True if prefetched address can be on a
             page different from the observed address""",
     )
+
+    """
+    For a 64-bit virtual address space with an 4 KB page size,
+    #bits needed for page offset = log2(4 KB) = 12 bits
+    #bits needed for page number = 64 - 12 = 52 bits
+    Assume the page size is 4 KB.
+    """
     page_shift = Param.UInt32(
         12, "Number of bits to mask to get a page number"
     )

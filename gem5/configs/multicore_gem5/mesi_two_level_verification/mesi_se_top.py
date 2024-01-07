@@ -53,7 +53,6 @@ Options:
 Examples:
 build/X86_debug/gem5.debug configs/multicore_gem5/mesi_two_level_verification/mesi_se_top.py --max_mem_reqs=-1
 build/X86_debug/gem5.debug configs/multicore_gem5/mesi_two_level_verification/mesi_se_top.py --max_mem_reqs=-1 --network_class=GarnetPt2Pt
-build/X86_debug/gem5.debug --debug-flags=RubySlicc configs/multicore_gem5/mesi_two_level_verification/mesi_se_top.py
 build/X86_debug/gem5.debug --debug-flags=ProtocolTrace configs/multicore_gem5/mesi_two_level_verification/mesi_se_top.py
 """
 
@@ -66,14 +65,23 @@ from m5.stats.gem5stats import get_simstat
 
 from pprint import pprint
 from cache_system_se import CacheSystemSE
-#import pdb; pdb.set_trace()
+
+# Needed for debugging with PDB
+import pdb
 
 # Needed for running C++ threads
 m5.util.addToPath("../../")
+
 from common.FileSystemConfig import config_filesystem
 
-if buildEnv["PROTOCOL"] != "MESI_Two_Level":
-    fatal("This system assumes MESI_Two_Level!")
+valid_cpu = {
+    "X86TimingSimpleCPU": X86TimingSimpleCPU,
+    "X86DerivO3CPU": X86O3CPU,
+}
+
+print("Cache Coherence Protocol of the Env = ", buildEnv["PROTOCOL"])
+if buildEnv["PROTOCOL"] != "MESI_Two_Level" and buildEnv["PROTOCOL"] != "MESI_Two_Level_Pythia":
+    fatal("The system assumes MESI_Two_Level with or without Pythia prefetcher(s)!")
 
 # Sets up a command-line argument parser using the argparse module
 parser = argparse.ArgumentParser()
@@ -103,8 +111,17 @@ parser.add_argument(
     help="Top-level voltage for blocks running at system power supply",
 )
 
-parser.add_argument("-n", "--num_cpus", type=int, default=4)
+# Must be at least two cores!
+parser.add_argument("-n", "--num_cpus", type=int, default=2)
 
+parser.add_argument("--cpu", choices=valid_cpu.keys(), default="X86TimingSimpleCPU")
+
+'''
+Note that when ruby prefetcher is used, the following parameters must be
+set to appropriate values (e.g., cannot be too small). Or, the error message
+`packet.hh:1214: T* gem5::Packet::getPtr() [with T = unsigned char]:
+Assertion `flags.isSet(STATIC_DATA|DYNAMIC_DATA)' failed` will be encountered.
+'''
 parser.add_argument("--l1i_size", type=str, default="32kB")
 parser.add_argument("--l1i_assoc", type=int, default=8)
 
@@ -115,27 +132,22 @@ parser.add_argument("--l2_size", type=str, default="256kB")
 parser.add_argument("--l2_assoc", type=int, default=16)
 parser.add_argument("--num_l2Caches", type=int, default=1)
 
+parser.add_argument("--prefetcher_name", type=str, default="PythiaPrefetcher")
+#parser.add_argument("--prefetcher_name", type=str, default="RubyPrefetcher")
+
+parser.add_argument(
+    "--enable_l1_prefetch",
+    action="store_true",
+    default=False,
+    help="Enable prefetching"
+)
+
 """
 Parse the arguments and store the results in the `args` variable. This allows
 the values of the command-line arguments to be easily accessed and used later
 in the configuration script.
 """
 args = parser.parse_args()
-
-'''
-Note that when ruby prefetcher is used, the following parameters must be
-set to appropriate values (e.g., cannot be too small). Or, the error message
-`packet.hh:1214: T* gem5::Packet::getPtr() [with T = unsigned char]:
-Assertion `flags.isSet(STATIC_DATA|DYNAMIC_DATA)' failed` will be encountered.
-'''
-args.l1d_size = "16kB"
-args.l1d_assoc = 2
-
-args.l1i_size = "16kB"
-args.l1i_assoc = 2
-
-args.l2_size = "128kB"
-args.l2_assoc = 4
 
 print("num_cpus: ", args.num_cpus)
 print("num_l2Caches: ", args.num_l2Caches)
@@ -145,6 +157,8 @@ print("l1i_size: ", args.l1i_size)
 print("l1i_assoc: ", args.l1i_assoc)
 print("l2_size: ", args.l2_size)
 print("l2_assoc: ", args.l2_assoc)
+print("prefetcher_name: ", args.prefetcher_name)
+print("enable_l1_prefetch: ", args.enable_l1_prefetch)
 
 # Create the system we are going to simulate
 system = System()
@@ -160,8 +174,11 @@ system.mem_mode = "timing"  # Use timing accesses
 system.mem_ranges = [AddrRange("2GB")]  # Create an address range
 
 # Create the CPU objects
-# NOTE: DerivO3CPU is not supported by the SE mode.
-system.cpu = [X86TimingSimpleCPU() for i in range(args.num_cpus)]
+# NOTE: The use of O3 CPUs seems to increase the Pythia prefetch's accuracy.
+system.cpu = [valid_cpu[args.cpu]() for i in range(args.num_cpus)]
+
+#system.cpu = [X86TimingSimpleCPU() for i in range(args.num_cpus)]
+#system.cpu = [X86O3CPU() for i in range(args.num_cpus)]
 
 # Create a DDR3 memory controller and connect it to the membus
 system.mem_ctrl = MemCtrl()
@@ -190,7 +207,7 @@ system.caches.setup(
 # os.path.dirname returns the parent directory of the specified path.
 # config_path = the absolute path of the directory containing the config file
 config_path = os.path.dirname(os.path.abspath(__file__))
-print("Dreictory path of the config file: ", config_path)
+print("Directory path of the config file: ", config_path)
 
 # config_root = the absolute path of the parent directory of `config_path`
 config_root = os.path.dirname(config_path)
@@ -216,6 +233,7 @@ process = Process()
 process.cmd = [binary]
 
 # Set the cpu to use the process as its workload and create thread contexts
+# TODO: Not sure if all CPUs run the same test program collectively or independently.
 for cpu in system.cpu:
     cpu.workload = process
     cpu.createThreads()
@@ -234,6 +252,7 @@ m5.instantiate()
 globalStart = time.time()
 
 print("Start running simulation ...")
+#pdb.set_trace()
 exit_event = m5.simulate()
 
 if exit_event.getCause() == "exiting with last active thread context" or \

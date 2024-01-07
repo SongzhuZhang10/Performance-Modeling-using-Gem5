@@ -73,8 +73,8 @@ class CacheSystemSE(RubySystem):
     def __init__(self):
         super().__init__()
 
-        if buildEnv["PROTOCOL"] != "MESI_Two_Level":
-            fatal("This system assumes MESI_Two_Level protocol!")
+        if buildEnv["PROTOCOL"] != "MESI_Two_Level" and buildEnv["PROTOCOL"] != "MESI_Two_Level_Pythia":
+            fatal("The system assumes MESI_Two_Level with or without Pythia prefetcher(s)!")
 
     def setup(self, options, system, network_class):
         """
@@ -86,7 +86,7 @@ class CacheSystemSE(RubySystem):
         than when we're using CPUs.
         """
 
-        requires(coherence_protocol_required=CoherenceProtocol.MESI_TWO_LEVEL)
+        #requires(coherence_protocol_required=CoherenceProtocol.MESI_Two_Level_Pythia)
 
         print(f"The network class for the Ruby system is {network_class}.")
 
@@ -149,6 +149,8 @@ class CacheSystemSE(RubySystem):
                 cache_line_size=system.cache_line_size,
                 ruby_system=self,
                 clk_domain=l1_cache_clk_domain,
+                prefetcher_name=options.prefetcher_name,
+                enable_l1_prefetch=options.enable_l1_prefetch,
             )
             l1_ctrls.append(l1_cache)
 
@@ -246,6 +248,8 @@ class CacheSystemSE(RubySystem):
         elif (network_class == 'SimplePt2Pt'):
             self.network.connectControllers(self.all_ctrls)
             self.network.setup_buffers()
+
+        print(f"Cache line size of the Ruby memory: {system.cache_line_size}")
 
         # Set up a proxy port for the system_port. Used for load binaries and
         # other functional-only things.

@@ -75,7 +75,7 @@ class L2Cache(L2Cache_Controller):
         """
         This is the cache memory object that stores the cache data and tags.
         NOTE: You cannot use things like `self.cacheMemory = RubyCache(...)`
-        here because the name self.L2cache is reserved in
+        here because the name `self.L2cache` is reserved in
         `build/X86_debug/mem/ruby/protocol/L2Cache_Controller.py`.
         If you use any other name (e.g., cacheMemory), when calling 
         `m5.instantiate()` in the top config file, an error message like the
@@ -83,7 +83,8 @@ class L2Cache(L2Cache_Controller):
         `fatal: system.caches.network.ext_links2.ext_node.L2cache without
         default or user set value`.
         This is because `L2Cache_Controller` does not have an attribute that
-        is named as `cacheMemory`, leaving the attribute `L2cache` undefined.
+        is named as `cacheMemory`, leaving the reserved attribute `L2cache`
+        undefined.
         """
         self.L2cache = RubyCache(
             size=l2_size,
@@ -93,7 +94,16 @@ class L2Cache(L2Cache_Controller):
 
         self.ruby_system = ruby_system # Don't forget this!
         self.clk_domain = clk_domain
+        
+        """
+        The transitions_per_cycle parameter allows you to control how many
+        state transitions a cache controller can perform in a single simulation
+        cycle. By setting this parameter, you can control the granularity of
+        the simulation, influencing the pace at which the cache controller
+        processes events and transitions between states.
+        """
         self.transitions_per_cycle = 4
+
         self.connectQueues(ruby_system.network)
 
     def getIndexBit(self, num_l2caches):
