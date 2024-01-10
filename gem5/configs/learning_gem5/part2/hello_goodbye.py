@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2017 Jason Lowe-Power
 # All rights reserved.
 #
@@ -43,13 +42,13 @@ from m5.objects import *
 # set up the root SimObject and start the simulation
 root = Root(full_system=False)
 
-# Create an instantiation of the simObject you created
+# Create an instantiation of the simobject you created
 root.hello = HelloObject(time_to_wait="2us", number_of_fires=5)
 root.hello.goodbye_object = GoodbyeObject(buffer_size="100B")
 
 # instantiate all of the objects we've created above
 m5.instantiate()
 
-print("Beginning simulation!")
+print(f"Beginning simulation!")
 exit_event = m5.simulate()
-print("Exiting @ tick %i because %s" % (m5.curTick(), exit_event.getCause()))
+print(f"Exiting @ tick {m5.curTick()} because {exit_event.getCause()}")

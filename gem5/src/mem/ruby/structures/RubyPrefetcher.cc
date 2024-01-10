@@ -288,7 +288,7 @@ RubyPrefetcher::accessUnitFilter(CircularQueue<UnitFilterEntry>* const filter,
             entry.addr = makeNextStrideAddress(entry.addr, stride);
             entry.hits++;
             if (entry.hits >= m_train_misses) {
-            // if cache miss happens to this addr has happened enough number of times
+                // if cache miss happens to this addr has happened enough number of times
                 // Allocate a new prefetch stream
                 initializeStream(line_addr, stride, getLRUindex(), type);
             }

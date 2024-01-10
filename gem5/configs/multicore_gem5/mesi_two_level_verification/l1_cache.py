@@ -74,7 +74,7 @@ class L1Cache(L1Cache_Controller):
         cache_line_size,
         ruby_system,
         clk_domain: ClockDomain,
-        prefetcher_name=PythiaPrefetcher,
+        prefetcher_name,
         enable_l1_prefetch=False
     ):
         """

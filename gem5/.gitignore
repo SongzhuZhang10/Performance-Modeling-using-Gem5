@@ -34,5 +34,5 @@ configs/dram/lowp_sweep.cfg
 .pyenv
 cpu_tests/benchmarks/bin/arm/FloatMM
 cpu_tests/benchmarks/bin/arm/Bubblesort
-run.log
-arm_run.log
+/build_foo/*
+tests/test-progs/threads/bin/x86/linux

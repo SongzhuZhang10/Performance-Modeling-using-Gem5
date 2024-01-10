@@ -39,10 +39,10 @@
  */
 
 machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
-  : CacheMemory * L2cache;
-    Cycles l2_request_latency := 2;
-    Cycles l2_response_latency := 2;
-    Cycles to_l1_latency := 1;
+ : CacheMemory * L2cache;
+   Cycles l2_request_latency := 2;
+   Cycles l2_response_latency := 2;
+   Cycles to_l1_latency := 1;
 
   // Message Queues
   // From local bank of L2 cache TO the network
@@ -202,6 +202,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
   }
 
   void setState(TBE tbe, Entry cache_entry, Addr addr, State state) {
+    // MUST CHANGE
     if (is_valid(tbe)) {
       tbe.TBEState := state;
     }
@@ -380,13 +381,13 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP")
           // The L2 contains the block, so proceeded with handling the request
           trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
                                                 in_msg.Requestor, cache_entry),
-                                                in_msg.addr, cache_entry, tbe);
+                  in_msg.addr, cache_entry, tbe);
         } else {
           if (L2cache.cacheAvail(in_msg.addr)) {
             // L2 does't have the line, but we have space for it in the L2
             trigger(L1Cache_request_type_to_event(in_msg.Type, in_msg.addr,
                                                   in_msg.Requestor, cache_entry),
-                                                  in_msg.addr, cache_entry, tbe);
+                    in_msg.addr, cache_entry, tbe);
           } else {
             // No room in the L2, so we need to make room before handling the request
             Addr victim := L2cache.cacheProbe(in_msg.addr);

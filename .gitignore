@@ -26,3 +26,4 @@ gem5/tests/test-progs/threads/bin/x86/linux/threads
 gem5/tests/test-progs/threads/bin/x86/linux/threads
 gem5/results/*.txt
 *.log
+gem5/tests/test-progs/threads/bin/x86/linux/*

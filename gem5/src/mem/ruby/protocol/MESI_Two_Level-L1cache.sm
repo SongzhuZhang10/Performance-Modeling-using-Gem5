@@ -312,7 +312,7 @@ in the L1 cache.
     return tbe.pendingAcks;
   }
 
-  /**
+/**
    * out_port: keyword that indicates you're declaring an output port which is
    * typically used for sending messages or requests to other components
    * queueName_out: name/identifier given to the output port
@@ -346,7 +346,6 @@ in the L1 cache.
                               L1Icache_entry, TBEs[in_msg.LineAddress]);
                   }
 
-                  DPRINTF(RubySlicc, "Instr block %s to be prefetched is absent in local L1.\n", L1Icache_entry.DataBlk);
                   // Check to see if it is in the OTHER L1
                   Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
                   if (is_valid(L1Dcache_entry)) {
@@ -358,7 +357,6 @@ in the L1 cache.
                               L1Dcache_entry, TBEs[in_msg.LineAddress]);
                   }
 
-                  DPRINTF(RubySlicc, "Instr Block to be prefetched is absent in local L1.\n");
                   if (L1Icache.cacheAvail(in_msg.LineAddress)) {
                       DPRINTF(RubySlicc, "Space available in L1. Check if the instr block to be prefetched is in L2.\n");
                       // L1 does't have the line, but we have space for it
@@ -385,7 +383,6 @@ in the L1 cache.
                               L1Dcache_entry, TBEs[in_msg.LineAddress]);
                   }
 
-                  DPRINTF(RubySlicc, "Data block %s to be prefetched is absent in local L1.\n", L1Dcache_entry.DataBlk);
                   // Check to see if it is in the OTHER L1
                   Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
                   if (is_valid(L1Icache_entry)) {
@@ -396,7 +393,6 @@ in the L1 cache.
                               L1Icache_entry, TBEs[in_msg.LineAddress]);
                   }
 
-                  DPRINTF(RubySlicc, "Data block to be prefetched is absent in L1.\n");
                   if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
                       DPRINTF(RubySlicc, "Space available in L1. Check if the data block to be prefetched is in L2.\n");
                       // L1 does't have the line, but we have space for it in
@@ -493,7 +489,7 @@ in the L1 cache.
   }
 
   // Mandatory Queue between Node's CPU and its L1 caches
-  /**
+/**
    * The ruby requests sent directly from the CPU has valid PC values, whereas
    * the ruby requests sent from the prefetcher do not hold valid PC values
    * because those requests are not induced by instructions.
@@ -503,7 +499,12 @@ in the L1 cache.
   in_port(mandatoryQueue_in, RubyRequest, mandatoryQueue, desc="...", rank = 0) {
     if (mandatoryQueue_in.isReady(clockEdge())) {
       peek(mandatoryQueue_in, RubyRequest, block_on="LineAddress") {
-        if (in_msg.Type == RubyRequestType:IFETCH) { // *** INSTRUCTION ACCESS ***
+
+        // Check for data access to blocks in I-cache and ifetchs to blocks in D-cache
+
+        if (in_msg.Type == RubyRequestType:IFETCH) {
+          // ** INSTRUCTION ACCESS ***
+
           Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
           if (is_valid(L1Icache_entry)) {
             DPRINTF(RubySlicc, "I-cache hit in local L1.\n");
@@ -525,7 +526,6 @@ in the L1 cache.
                       L1Dcache_entry, TBEs[in_msg.LineAddress]);
             }
 
-            DPRINTF(RubySlicc, "I-cache miss in L1.\n");
             if (L1Icache.cacheAvail(in_msg.LineAddress)) {
               DPRINTF(RubySlicc, "Space available in L1. Check if the missing instr is in L2.\n");
               // L1 does not have the requested data, but we have space for it
@@ -542,7 +542,9 @@ in the L1 cache.
                       getL1ICacheEntry(addr), TBEs[addr]);
             }
           }
-        } else { // *** DATA ACCESS ***
+        } else {
+
+          // *** DATA ACCESS ***
           Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
           if (is_valid(L1Dcache_entry)) {
             DPRINTF(RubySlicc, "D-cache hit in local L1.\n");
@@ -561,7 +563,6 @@ in the L1 cache.
                       L1Icache_entry, TBEs[in_msg.LineAddress]);
             }
 
-            DPRINTF(RubySlicc, "D-cache miss in L1.\n");
             if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
               DPRINTF(RubySlicc, "Space available in L1. Check if the missing data is in L2.\n");
               // L1 does't have the line, but we have space for it
@@ -582,8 +583,8 @@ in the L1 cache.
       }
     }
   }
-  
-  // This function is called in `src/mem/ruby/structures/RubyPrefetcher.cc`.
+
+// This function is called in `src/mem/ruby/structures/RubyPrefetcher.cc`.
   void enqueuePrefetch(Addr address, RubyRequestType type) {
       enqueue(optionalQueue_out, RubyRequest, 1) {
           out_msg.LineAddress := address;

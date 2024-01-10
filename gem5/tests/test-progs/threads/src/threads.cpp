@@ -40,16 +40,43 @@ using namespace std;
 
 mutex shared_var_mutex;
 mutex shared_print_mutex;
-int shared_var = 0;
+/**
+ * Aligning shared_var to a 64-byte boundary is an attempt to prevent false
+ * sharing. False sharing occurs when multiple variables that are not
+ * logically related share the same cache line, leading to unnecessary cache
+ * invalidations and performance degradation in a multi-threaded environment.
+ * The alignas(64) directive is telling the compiler to ensure that the memory
+ * for shared_var starts at an address that is a multiple of 64 bytes. This
+ * aligns the variable to a cache line boundary, which can be beneficial for
+ * performance in some situations.
+ * However, the effectiveness of alignment optimizations is not guaranteed.
+ */
+alignas(64) int shared_var = 0; // Align to a 64-byte boundary (common cache line size)
+
 const bool enable_print = true;
 const unsigned num_iterations = 50;
 
-unsigned factorial(int n) {
-    if (n == 0) {
-        return 1;
+void busy_wait(int count, int thread_id) {
+    if (enable_print) {
+        // NOTE: When a thread prints something out, the print statement must be
+        // guarded by mutexes.
+        shared_print_mutex.lock();
+        printf("Thread %d is busy for %d ticks.\n", thread_id, count);
+        shared_print_mutex.unlock();
     }
-    else {
-        return n * factorial(n - 1);
+
+    int j = 0;
+    // Perform a large number of iterations to keep the program busy
+    for (int i = 0; i < count; ++i) {
+        // Do some simple computation
+        j = i % 10;
+        j *= 2;
+    }
+
+    if (enable_print) {
+        shared_print_mutex.lock();
+        printf("Thread %d is free with j = %d.\n", thread_id, j);
+        shared_print_mutex.unlock();
     }
 }
 
@@ -62,7 +89,7 @@ void iCacheIntensiveTask(int n, int thread_id) {
         shared_var_mutex.unlock();
     }
 
-    volatile double result = 0;
+    double result = 0;
     // 1. Nested loops with complex calculations:
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < (n * 1.4); ++j) {
@@ -87,17 +114,9 @@ void iCacheIntensiveTask(int n, int thread_id) {
         largeVector[index] = largeVector[i] * largeVector[index];
     }
     // Combine elements using XOR
-    volatile unsigned combinedValue = 0;
+    unsigned combinedValue = 0;
     for (unsigned i = 0; i < largeVector.size(); ++i) {
         combinedValue ^= largeVector[i];
-    }
-
-    // Function calls with varying n sizes:
-    volatile unsigned factorial_result = 0;
-    for (int i = 0; i < (rand() % 10); ++i) {
-        shared_var_mutex.lock();
-        factorial_result = factorial(rand() % (shared_var + i + 10));  // Assuming a factorial function is defined elsewhere
-        shared_var_mutex.unlock();
     }
 
     if (enable_print) {
@@ -106,33 +125,11 @@ void iCacheIntensiveTask(int n, int thread_id) {
         shared_print_mutex.lock();
         printf("Thread %d: reault        = %.3f\n", thread_id, result);
         printf("Thread %d: combinedValue = %u\n", thread_id, combinedValue);
-        printf("Thread %d: combinedValue = %u\n", thread_id, factorial_result);
-        shared_print_mutex.unlock();
-    }
-}
-
-void busy_wait(int count, int thread_id) {
-    if (enable_print) {
-        // NOTE: When a thread prints something out, the print statement must be
-        // guarded by mutexes.
-        shared_print_mutex.lock();
-        printf("Thread %d is busy for %d ticks.\n", thread_id, count);
         shared_print_mutex.unlock();
     }
 
-    volatile int j = 0;
-    // Perform a large number of iterations to keep the program busy
-    for (int i = 0; i < count; ++i) {
-        // Do some simple computation
-        j = i % 10;
-        j *= 2;
-    }
-
-    if (enable_print) {
-        shared_print_mutex.lock();
-        printf("Thread %d is free with j = %d.\n", thread_id, j);
-        shared_print_mutex.unlock();
-    }
+    int sleep_duration = rand() % (10 * (thread_id + 1) + static_cast<int>(result) % n);
+    busy_wait(sleep_duration, thread_id);
 }
 
 // Thread function
@@ -167,21 +164,18 @@ void dCacheIntensiveTask(int n, int thread_id)
     }
 
     // Computation on the data (to ensure usage)
-    volatile int sum = 0;
+    int sum = 0;
     for (int i = 0; i < n; i++) {
         sum += data[i];
     }
 
     if (enable_print) {
         shared_print_mutex.lock();
-        printf("Thread %d: result = %d\n", thread_id, sum);
+        printf("Thread %d: sum = %d\n", thread_id, sum);
         shared_print_mutex.unlock();
     }
 
-    // Prevent compiler optimization from removing unused results
-    volatile int result = sum % n;
-
-    int sleep_duration = rand() % (10 * (thread_id + 1) + result);
+    int sleep_duration = rand() % (10 * (thread_id + 1) + sum % n);
     busy_wait(sleep_duration, thread_id);
 }
 
@@ -199,14 +193,18 @@ int main()
 
     vector<thread> threads;
 
-    // NOTE: -1 is required for this test program to work in SE mode.
+    /**
+     * Attention: The total number of threads (including the thread running
+     * the main() funciton) cannot exceed the number of physical cores in SE
+     * mode. Thus,-1 is required for this test program to work.
+     */
     for (unsigned i = 0; i < num_cores - 1; i++) {
         threads.emplace_back(iCacheIntensiveTask, num_iterations, i);
     }
 
     // Execute the last thread with this thread context to avoid runtime errors
     // that exist only in SE mode.
-    iCacheIntensiveTask(num_cores - 1, num_iterations);
+    dCacheIntensiveTask(num_iterations, num_cores);
 
     // Wait for all threads to finish.
     for (auto& thread : threads) {
@@ -214,10 +212,10 @@ int main()
     }
 
     // Check if the result is correct
-    int expected_result = (num_cores + 1) * num_iterations;
+    int expected_result = num_cores * num_iterations;
     if (shared_var == expected_result)
     {
-        cout << "---------> The shared variable has the correct result! It is " << shared_var << endl;
+        cout << "---------> The shared variable has the correct result <---------" << shared_var << endl;
     }
     else
     {

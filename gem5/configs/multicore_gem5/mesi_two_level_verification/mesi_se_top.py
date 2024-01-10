@@ -171,7 +171,7 @@ system.clk_domain.voltage_domain = VoltageDomain(voltage=args.sys_voltage)
 # Any memory requests made by the simulated system will be directed to the
 # memory range specified by `args.mem_size`.
 system.mem_mode = "timing"  # Use timing accesses
-system.mem_ranges = [AddrRange("2GB")]  # Create an address range
+system.mem_ranges = [AddrRange("8GB")]  # Create an address range
 
 # Create the CPU objects
 # NOTE: The use of O3 CPUs seems to increase the Pythia prefetch's accuracy.

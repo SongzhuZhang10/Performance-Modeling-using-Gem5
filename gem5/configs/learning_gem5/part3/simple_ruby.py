@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2015 Jason Power
 # All rights reserved.
 #
@@ -71,27 +70,22 @@ system.mem_ctrl = MemCtrl()
 system.mem_ctrl.dram = DDR3_1600_8x8()
 system.mem_ctrl.dram.range = system.mem_ranges[0]
 
-# Create the interrupt controller for the CPU and connect to the membus
+# create the interrupt controller for the CPU and connect to the membus
 for cpu in system.cpu:
     cpu.createInterruptController()
 
 # Create the Ruby System
-# Must be done after the CPU interrupt controllers have been created, but before instantiating the system.
-system.caches = MyCacheSystem() # Create the cache system
-system.caches.setup(system, system.cpu, [system.mem_ctrl]) # Set up all of the caches
+system.caches = MyCacheSystem()
+system.caches.setup(system, system.cpu, [system.mem_ctrl])
 
 # Run application and use the compiled ISA to find the binary
 # grab the specific path to the binary
 thispath = os.path.dirname(os.path.realpath(__file__))
-print(f"Directory path of the configuration script: {thispath}")
-
 binary = os.path.join(
     thispath,
     "../../../",
     "tests/test-progs/threads/bin/x86/linux/threads",
 )
-print(f"Path of the binary: {binary}")
-
 
 # Create a process for a simple "multi-threaded" application
 process = Process()
@@ -115,6 +109,4 @@ m5.instantiate()
 
 print("Beginning simulation!")
 exit_event = m5.simulate()
-print(
-    "Exiting @ tick {} because {}".format(m5.curTick(), exit_event.getCause())
-)
+print(f"Exiting @ tick {m5.curTick()} because {exit_event.getCause()}")
