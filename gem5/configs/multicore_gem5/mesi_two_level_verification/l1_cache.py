@@ -74,7 +74,6 @@ class L1Cache(L1Cache_Controller):
         cache_line_size,
         ruby_system,
         clk_domain: ClockDomain,
-        prefetcher_name,
         enable_l1_prefetch=False
     ):
         """
@@ -115,10 +114,8 @@ class L1Cache(L1Cache_Controller):
 
         self.enable_l1_prefetch = enable_l1_prefetch
 
-        if prefetcher_name == "RubyPrefetcher":
-            self.prefetcher = RubyPrefetcher()
-        elif prefetcher_name == "PythiaPrefetcher":
-            self.prefetcher = PythiaPrefetcher()
+        # prefetcher is defined in the SLICC file and must be initialized in the config file
+        self.prefetcher = PythiaPrefetcher()
 
         self.send_evictions = True
         self.transitions_per_cycle = 4
@@ -134,6 +131,7 @@ class L1Cache(L1Cache_Controller):
         return bits
 
 
+    # All the message buffers involved here will be used in the L1$'s SLICC file.
     def connectQueues(self, network):
         self.mandatoryQueue = MessageBuffer()
         
@@ -144,7 +142,7 @@ class L1Cache(L1Cache_Controller):
         self.unblockFromL1Cache = MessageBuffer()
         self.unblockFromL1Cache.out_port = network.in_port
 
-        self.optionalQueue = MessageBuffer()
+        self.optionalQueue = MessageBuffer(ordered=True)
 
         self.requestToL1Cache = MessageBuffer()
         self.requestToL1Cache.in_port = network.out_port

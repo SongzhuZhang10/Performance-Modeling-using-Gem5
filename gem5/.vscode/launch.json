@@ -5,16 +5,19 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            //"program": "${workspaceFolder}/build/X86_MESI_debug/gem5.debug",
-            "program": "${workspaceFolder}/build/X86_MESI_Pythia_debug/gem5.debug",
+            "program": "${workspaceFolder}/build/X86_MESI_Two_Level_Pythia/gem5.debug",
             "args": [
-                "--debug-flags=PythiaPrefetcher",
+                //"--debug-flags=PythiaPrefetcher",
+                "--debug-flags=HWPrefetchScooby",
                 /**
                  * Note that ruby_rand_test_top.py cannot be used for debugging the Ruby prefetcher SimObject
                  * because it does not trigger any C++ code of the Ruby prefetcher.
                  */
+                /* 
                 "${workspaceFolder}/configs/multicore_gem5/mesi_two_level_verification/mesi_se_top.py",
                 "--enable_l1_prefetch"
+                */
+                "${workspaceFolder}/configs/multicore_gem5/multicore_with_classic_caches/se_top.py"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

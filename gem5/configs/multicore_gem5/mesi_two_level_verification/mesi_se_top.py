@@ -108,13 +108,19 @@ parser.add_argument(
     action="store",
     type=str,
     default="1.0V",
-    help="Top-level voltage for blocks running at system power supply",
+    help="Top-level voltage for blocks running at system power supply"
 )
 
 # Must be at least two cores!
 parser.add_argument("-n", "--num_cpus", type=int, default=2)
 
-parser.add_argument("--cpu", choices=valid_cpu.keys(), default="X86TimingSimpleCPU")
+parser.add_argument(
+    "--cpu",
+    action="store",
+    type=str,
+    default="X86TimingSimpleCPU",
+    choices=valid_cpu.keys()
+)
 
 '''
 Note that when ruby prefetcher is used, the following parameters must be
@@ -132,11 +138,16 @@ parser.add_argument("--l2_size", type=str, default="256kB")
 parser.add_argument("--l2_assoc", type=int, default=16)
 parser.add_argument("--num_l2Caches", type=int, default=1)
 
-parser.add_argument("--prefetcher_name", type=str, default="PythiaPrefetcher")
-#parser.add_argument("--prefetcher_name", type=str, default="RubyPrefetcher")
 
 parser.add_argument(
     "--enable_l1_prefetch",
+    action="store_true",
+    default=False,
+    help="Enable prefetching"
+)
+
+parser.add_argument(
+    "--enable_l2_prefetch",
     action="store_true",
     default=False,
     help="Enable prefetching"
@@ -157,8 +168,8 @@ print("l1i_size: ", args.l1i_size)
 print("l1i_assoc: ", args.l1i_assoc)
 print("l2_size: ", args.l2_size)
 print("l2_assoc: ", args.l2_assoc)
-print("prefetcher_name: ", args.prefetcher_name)
 print("enable_l1_prefetch: ", args.enable_l1_prefetch)
+print("enable_l2_prefetch: ", args.enable_l2_prefetch)
 
 # Create the system we are going to simulate
 system = System()
@@ -213,9 +224,6 @@ print("Directory path of the config file: ", config_path)
 config_root = os.path.dirname(config_path)
 print("Config root: ", config_root)
 
-m5_root = os.path.dirname(config_root)
-print("m5 root: ", m5_root)
-
 binary = os.path.join(
     config_root,
     "../../",
@@ -239,6 +247,7 @@ for cpu in system.cpu:
     cpu.createThreads()
 
 system.workload = SEWorkload.init_compatible(binary)
+system.multi_thread = True
 
 # Set up the pseudo file system for the threads function above
 config_filesystem(system)

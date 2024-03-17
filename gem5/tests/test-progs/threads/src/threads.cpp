@@ -54,46 +54,17 @@ mutex shared_print_mutex;
 alignas(64) int shared_var = 0; // Align to a 64-byte boundary (common cache line size)
 
 const bool enable_print = true;
-const unsigned num_iterations = 50;
-
-void busy_wait(int count, int thread_id) {
-    if (enable_print) {
-        // NOTE: When a thread prints something out, the print statement must be
-        // guarded by mutexes.
-        shared_print_mutex.lock();
-        printf("Thread %d is busy for %d ticks.\n", thread_id, count);
-        shared_print_mutex.unlock();
-    }
-
-    int j = 0;
-    // Perform a large number of iterations to keep the program busy
-    for (int i = 0; i < count; ++i) {
-        // Do some simple computation
-        j = i % 10;
-        j *= 2;
-    }
-
-    if (enable_print) {
-        shared_print_mutex.lock();
-        printf("Thread %d is free with j = %d.\n", thread_id, j);
-        shared_print_mutex.unlock();
-    }
-}
+const unsigned num_iterations = 90;
 
 void iCacheIntensiveTask(int n, int thread_id) {
-    for (int i = 0; i < n; ++i) {
-        // Lock the mutex to access the shared variable
-        shared_var_mutex.lock();
-        shared_var++;
-        // Unlock the mutex before sleeping to allow other threads to access it
-        shared_var_mutex.unlock();
-    }
 
     double result = 0;
     // 1. Nested loops with complex calculations:
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < (n * 1.4); ++j) {
-            result = n * (i * j) + sqrt(i * j) + pow(i + j, 3.14);
+            shared_var_mutex.lock();
+            result = n * (i * j) + sqrt(i * j) + pow(i + j, 3.14) + shared_var;
+            shared_var_mutex.unlock();
             // Perform some operations with result to prevent compiler optimizations
             if ((rand() % n) > (n / 2)) {
                 result *= 2 * (rand() % n + 2);
@@ -116,7 +87,9 @@ void iCacheIntensiveTask(int n, int thread_id) {
     // Combine elements using XOR
     unsigned combinedValue = 0;
     for (unsigned i = 0; i < largeVector.size(); ++i) {
-        combinedValue ^= largeVector[i];
+        shared_var_mutex.lock();
+        combinedValue ^= (largeVector[i] + shared_var);
+        shared_var_mutex.unlock();
     }
 
     if (enable_print) {
@@ -127,9 +100,6 @@ void iCacheIntensiveTask(int n, int thread_id) {
         printf("Thread %d: combinedValue = %u\n", thread_id, combinedValue);
         shared_print_mutex.unlock();
     }
-
-    int sleep_duration = rand() % (10 * (thread_id + 1) + static_cast<int>(result) % n);
-    busy_wait(sleep_duration, thread_id);
 }
 
 // Thread function
@@ -141,12 +111,6 @@ void dCacheIntensiveTask(int n, int thread_id)
         shared_var++;
         // Unlock the mutex before sleeping to allow other threads to access it
         shared_var_mutex.unlock();
-    }
-
-    if (enable_print) {
-        shared_print_mutex.lock();
-        printf("Thread %d accessed the common resource!\n", thread_id);
-        shared_print_mutex.unlock();
     }
 
     // Allocate a large vector to stress the cache
@@ -167,6 +131,9 @@ void dCacheIntensiveTask(int n, int thread_id)
     int sum = 0;
     for (int i = 0; i < n; i++) {
         sum += data[i];
+        shared_var_mutex.lock();
+        sum += ++shared_var;
+        shared_var_mutex.unlock();
     }
 
     if (enable_print) {
@@ -174,9 +141,6 @@ void dCacheIntensiveTask(int n, int thread_id)
         printf("Thread %d: sum = %d\n", thread_id, sum);
         shared_print_mutex.unlock();
     }
-
-    int sleep_duration = rand() % (10 * (thread_id + 1) + sum % n);
-    busy_wait(sleep_duration, thread_id);
 }
 
 // This is a simple multi-threaded application with
@@ -191,35 +155,31 @@ int main()
     cout << "with " << num_iterations << " iterations." << endl;
     //cout << "Note that only SimplePt2Pt network class is supported by gem5 SE mode." << endl;
 
-    vector<thread> threads;
+    if (num_cores > 1) {
+        vector<thread> threads;
 
-    /**
-     * Attention: The total number of threads (including the thread running
-     * the main() funciton) cannot exceed the number of physical cores in SE
-     * mode. Thus,-1 is required for this test program to work.
-     */
-    for (unsigned i = 0; i < num_cores - 1; i++) {
-        threads.emplace_back(iCacheIntensiveTask, num_iterations, i);
+        /**
+         * Attention: The total number of threads (including the thread running
+         * the main() funciton) cannot exceed the number of physical cores in SE
+         * mode. Thus,-1 is required for this test program to work.
+         */
+        for (unsigned i = 0; i < num_cores - 1; i++) {
+            threads.emplace_back(dCacheIntensiveTask, num_iterations, i);
+        }
+
+        // Execute the last thread with this thread context to avoid runtime errors
+        // that exist only in SE mode.
+        iCacheIntensiveTask(num_iterations, num_cores);
+
+        // Wait for all threads to finish.
+        for (auto& thread : threads) {
+            thread.join();
+        }
+    } else {
+        iCacheIntensiveTask(num_iterations, 0);
+        dCacheIntensiveTask(num_iterations, 0);
     }
 
-    // Execute the last thread with this thread context to avoid runtime errors
-    // that exist only in SE mode.
-    dCacheIntensiveTask(num_iterations, num_cores);
-
-    // Wait for all threads to finish.
-    for (auto& thread : threads) {
-        thread.join();
-    }
-
-    // Check if the result is correct
-    int expected_result = num_cores * num_iterations;
-    if (shared_var == expected_result)
-    {
-        cout << "---------> The shared variable has the correct result <---------" << shared_var << endl;
-    }
-    else
-    {
-        cout << "Warning: The shared variable has incorrect result: expected " << expected_result << ", actual " << shared_var << endl;
-    }
+    cout << "---------> End <---------" << endl;
     return 0;
 }

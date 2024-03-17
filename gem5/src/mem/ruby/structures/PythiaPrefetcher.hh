@@ -215,8 +215,7 @@ public:
      */
     void setController(AbstractController *_ctrl) { m_controller = _ctrl; }
 
-    void observeHit(Addr demand_address, Addr pc, const RubyRequestType& type);
-    void observePfMiss(Addr demand_address, Addr pc, const RubyRequestType& type);
+    void recordPartialHits(Addr demand_address, Addr pc);
     void observeMiss(Addr demand_address, Addr pc, const RubyRequestType& type);
 
 private:
@@ -262,9 +261,7 @@ private:
 
     // When this is flase, L1 instruction prefetch is enabled.
     bool l1_data_prefetch;
-    bool l2_prefetch;
     Addr debug_cycle;
-    RubyRequestType requestType;
     AbstractController *m_controller;
     std::shared_ptr<EQEntry> last_evicted_eq_entry;
 
@@ -272,7 +269,7 @@ private:
 
     StatePair getCurrStatePair() const;
 
-    void issueNextPrefetch(Addr addr, Addr pc, const RubyRequestType& type);
+    void issueNextPrefetch(Addr addr, Addr pc);
 
     /* Insert the entry. Get the evicted EQ entry. */
     void insertEvalQue(const std::shared_ptr<EQEntry>& new_entry);
@@ -297,7 +294,6 @@ private:
         statistics::Scalar numInaccurate;
         statistics::Scalar numUnrewardedEntries;
 
-        statistics::Scalar numObservedHits;
         statistics::Scalar numMissObserved;
         statistics::Scalar numPartialHits;
         statistics::Scalar numPageCross;

@@ -66,7 +66,7 @@ RewardType_to_string(const Reward& reward)
         case none:
             return "None";
         default:
-            panic("Invalid reward type!");
+            panic("Invalid reward!");
     }
     return "";
 }
@@ -239,8 +239,6 @@ PythiaPrefetcher::PythiaPrefetcher(const Params& p)
     explore(p.epsilon),
     num_vaults(2),
     qVStore(2, p.alpha, p.gamma, p.epsilon),
-    l1_data_prefetch(p.l1_data_prefetch),
-    l2_prefetch(p.l2_prefetch),
     debug_cycle(0),
     stats(this)
 {
@@ -276,7 +274,6 @@ Stats::Stats(statistics::Group *parent)
       ADD_STAT(numInaccurate, "Number of inaccurate rewards"),
       ADD_STAT(numUnrewardedEntries, "Number of unrewarded entries currently in the evaluation que"),
 
-      ADD_STAT(numObservedHits, "Number of hits observed"),
       ADD_STAT(numMissObserved, "Number of misses observed"),
       ADD_STAT(numPartialHits, "Number of misses observed for a block being prefetched"),
       ADD_STAT(numPageCross, "Number of prefetches across pages"),
@@ -289,32 +286,20 @@ Stats::Stats(statistics::Group *parent)
 {
 }
 
-/**
- * Note that if observeMiss is never called, then observePfMiss and observeHit
- * will never be called by the design of the MESI two level protocol.
- */
 void
 PythiaPrefetcher::observeMiss(Addr demand_address, Addr pc, const RubyRequestType& type)
 {
-    // Cache miss observed. It's irrelevant to the prefetcher design.
+    // Cache miss observed
     stats.numMissObserved++;
     //DPRINTF(PythiaPrefetcher, "Observed miss for 0x%6x\n", printAddress(demand_address));
     trainAndPredict(demand_address, pc, type);
 }
 
 void
-PythiaPrefetcher::observePfMiss(Addr demand_address, Addr pc, const RubyRequestType& type)
+PythiaPrefetcher::recordPartialHits(Addr demand_address, Addr pc)
 {
     stats.numPartialHits++;
     //DPRINTF(PythiaPrefetcher, "Observed partial hit for 0x%6x\n", printAddress(demand_address));
-}
-
-void
-PythiaPrefetcher::observeHit(Addr demand_address, Addr pc, const RubyRequestType& type)
-{
-    stats.numObservedHits++;
-    //DPRINTF(PythiaPrefetcher, "Observed hit for 0x%6x\n", printAddress(demand_address));
-    trainAndPredict(demand_address, pc, type);
 }
 
 StatePair
@@ -326,8 +311,8 @@ PythiaPrefetcher::getCurrStatePair() const
 void
 PythiaPrefetcher::updateEnvState(Addr pc, int pythia_offset, RubyRequestType type)
 {
-    //if (type == RubyRequestType_LD /*|| type == RubyRequestType_IFETCH*/ || type == RubyRequestType_ST || type == RubyRequestType_ATOMIC) {
-    if (type == RubyRequestType_IFETCH) {
+//if (type == RubyRequestType_LD /*|| type == RubyRequestType_IFETCH*/ || type == RubyRequestType_ST || type == RubyRequestType_ATOMIC) {
+    if (type == RubyRequestType_LD) {
         if (!m_pythia_offsets.empty()) {
             // delta is defined as the difference between the current and the last cache aligned addresses.
             // It can be calculated by the difference between the current and the last prefetch offsets.
@@ -336,15 +321,9 @@ PythiaPrefetcher::updateEnvState(Addr pc, int pythia_offset, RubyRequestType typ
             insertDelta(delta);
 
             // It's guaranteed that delta can be represented by 6 bits given 4KB page size.
-            //m_pc_delta = (pc << m_delta_bits) + pythia_offset;
-            //m_pc_delta = (pc << m_delta_bits) + delta;
-            //if (type == RubyRequestType_LD)
             m_pc_delta = PairHasher<Addr, int>()(std::make_pair(pc, delta));
         }
-    } else {
-        panic("Invalid RubyRequestType Error in Pythia: %s.\n", RubyRequestType_to_string(type));
     }
-
     // Insert prefetch offset
     if (m_pythia_offsets.size() == prefOffsetQueCapacity) {
         m_pythia_offsets.pop_front();
@@ -371,6 +350,7 @@ PythiaPrefetcher::getPageAlignedAddr(Addr addr) const
 unsigned
 PythiaPrefetcher::getPageNum(Addr addr) const
 {
+    assert(bits<Addr>(addr, 63, pageOffsetBits) == addr >> pageOffsetBits);
     return bits<Addr>(addr, 63, pageOffsetBits);
 }
 
@@ -419,12 +399,11 @@ PythiaPrefetcher::getStride(Addr addr, int action) const
 }
 
 void
-PythiaPrefetcher::issueNextPrefetch(Addr addr, Addr pc, const RubyRequestType& type)
+PythiaPrefetcher::issueNextPrefetch(Addr addr, Addr pc)
 {
     if (m_pc_delta == 0 || m_delta_sig == 0)
         return;
 
-    assert(type == RubyRequestType_IFETCH);
     int action = chooseAction(getCurrStatePair());
     assert(action >= 0);
 
@@ -445,9 +424,7 @@ PythiaPrefetcher::issueNextPrefetch(Addr addr, Addr pc, const RubyRequestType& t
             stats.numPrefetchRequested++;
             stats.numUnrewardedEntries++;
             //DPRINTF(PythiaPrefetcher, "DEBUG (%llu): Requesting prefetch for addr 0x%6x\n", debug_cycle, pref_line_addr);
-            //m_controller->enqueuePrefetch(pref_line_addr, RubyRequestType_LD); // issue the next prefetch request
-            m_controller->enqueuePrefetch(pref_line_addr, RubyRequestType_IFETCH); // issue the next prefetch request
-            
+            m_controller->enqueuePrefetch(pref_line_addr, RubyRequestType_LD); // issue the next prefetch request
         } else {
             // out-of-page prefetch -> immediately assign a reward to the EQ entry
             stats.numPageCross++;
@@ -520,9 +497,6 @@ void
 PythiaPrefetcher::trainAndPredict(Addr demand_address, Addr pc,
     const RubyRequestType& type)
 {
-    if (type != RubyRequestType_IFETCH)
-        return;
-
     stats.numDemands++;
     debug_cycle++;
 
@@ -564,7 +538,7 @@ PythiaPrefetcher::trainAndPredict(Addr demand_address, Addr pc,
     updateEnvState(pc, getStrideOffset(demand_address), type);
     printDebugCycle(demand_address, pc);
     printStateVector(makeLineAddress(demand_address), pc);
-    issueNextPrefetch(demand_address, pc, type);
+    issueNextPrefetch(demand_address, pc);
 }
 
 void

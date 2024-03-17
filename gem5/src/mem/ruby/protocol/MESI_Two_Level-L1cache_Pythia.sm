@@ -39,27 +39,27 @@
  */
 
 machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
-  : Sequencer * sequencer;
-    CacheMemory * L1Icache;
-    CacheMemory * L1Dcache;
-    PythiaPrefetcher * prefetcher;
-    int l2_select_num_bits;
-    Cycles l1_request_latency := 2;
-    Cycles l1_response_latency := 2;
-    Cycles to_l2_latency := 1;
-    bool send_evictions;
-    bool enable_l1_prefetch := "False"; // controlled by the top config file
+ : Sequencer * sequencer;
+   CacheMemory * L1Icache;
+   CacheMemory * L1Dcache;
+   PythiaPrefetcher * prefetcher;
+   int l2_select_num_bits;
+   Cycles l1_request_latency := 2;
+   Cycles l1_response_latency := 2;
+   Cycles to_l2_latency := 1;
+   bool send_evictions;
+   bool enable_l1_prefetch := "False"; // controlled by the top config file
 
-    // Message Queues
-    // From this node's L1 cache to the network
+   // Message Queues
+   // From this node's L1 cache to the network
 
-    // a local L1 -> this L2 bank, currently ordered with directory forwarded requests
-    MessageBuffer * requestFromL1Cache, network="To", virtual_network="0",
-      vnet_type="request";
+   // a local L1 -> this L2 bank, currently ordered with directory forwarded requests
+   MessageBuffer * requestFromL1Cache, network="To", virtual_network="0",
+        vnet_type="request";
 
-    // a local L1 -> this L2 bank
-    MessageBuffer * responseFromL1Cache, network="To", virtual_network="1",
-      vnet_type="response";
+   // a local L1 -> this L2 bank
+   MessageBuffer * responseFromL1Cache, network="To", virtual_network="1",
+        vnet_type="response";
 
   /**
    * The L1 cache sends an unblock message to the L2 cache when it has
@@ -72,17 +72,17 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
    * were blocked due to the previous access because the requested data is now
    * available in the L1 cache.
    */
-  MessageBuffer * unblockFromL1Cache, network="To", virtual_network="2",
-    vnet_type="unblock";
+   MessageBuffer * unblockFromL1Cache, network="To", virtual_network="2",
+        vnet_type="unblock";
 
-  // To this node's L1 cache FROM the network
-  // a L2 bank -> this L1
-  MessageBuffer * requestToL1Cache, network="From", virtual_network="2",
-    vnet_type="request";
+   // To this node's L1 cache FROM the network
+   // a L2 bank -> this L1
+   MessageBuffer * requestToL1Cache, network="From", virtual_network="2",
+        vnet_type="request";
 
-  // a L2 bank -> this L1
-  MessageBuffer * responseToL1Cache, network="From", virtual_network="1",
-    vnet_type="response";
+   // a L2 bank -> this L1
+   MessageBuffer * responseToL1Cache, network="From", virtual_network="1",
+        vnet_type="response";
 
   // Request Buffer for prefetches
   MessageBuffer * optionalQueue;
@@ -224,7 +224,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   void setState(TBE tbe, Entry cache_entry, Addr addr, State state) {
     assert((L1Dcache.isTagPresent(addr) && L1Icache.isTagPresent(addr)) == false);
 
-    if(is_valid(tbe)) {
+        if(is_valid(tbe)) {
       tbe.TBEState := state;
     }
 
@@ -236,17 +236,17 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   AccessPermission getAccessPermission(Addr addr) {
     TBE tbe := TBEs[addr];
     if(is_valid(tbe)) {
-      DPRINTF(PythiaL1Slicc, "%s\n", L1Cache_State_to_permission(tbe.TBEState));
+      DPRINTF(RubySlicc, "%s\n", L1Cache_State_to_permission(tbe.TBEState));
       return L1Cache_State_to_permission(tbe.TBEState);
     }
 
     Entry cache_entry := getCacheEntry(addr);
     if(is_valid(cache_entry)) {
-      DPRINTF(PythiaL1Slicc, "%s\n", L1Cache_State_to_permission(cache_entry.CacheState));
+      DPRINTF(RubySlicc, "%s\n", L1Cache_State_to_permission(cache_entry.CacheState));
       return L1Cache_State_to_permission(cache_entry.CacheState);
     }
 
-    DPRINTF(PythiaL1Slicc, "%s\n", AccessPermission:NotPresent);
+    DPRINTF(RubySlicc, "%s\n", AccessPermission:NotPresent);
     return AccessPermission:NotPresent;
   }
 
@@ -288,30 +288,30 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     } else if ((type == RubyRequestType:ST) || (type == RubyRequestType:ATOMIC)) {
       return Event:Store;
     } else {
-      DPRINTF(PythiaL1Slicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
+      DPRINTF(RubySlicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
       error("Invalid RubyRequestType");
     }
   }
 
   Event prefetch_request_type_to_event(RubyRequestType type) {
-      if (type == RubyRequestType:LD) {
-          return Event:PF_Load;
-      } else if (type == RubyRequestType:IFETCH) {
-          return Event:PF_Ifetch;
-      } else if ((type == RubyRequestType:ST) ||
-                 (type == RubyRequestType:ATOMIC)) {
-          return Event:PF_Store;
-      } else {
-          DPRINTF(PythiaL1Slicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
-          error("Invalid RubyRequestType");
-      }
+    if (type == RubyRequestType:LD) {
+      return Event:PF_Load;
+    } else if (type == RubyRequestType:IFETCH) {
+      return Event:PF_Ifetch;
+    } else if ((type == RubyRequestType:ST) ||
+               (type == RubyRequestType:ATOMIC)) {
+      return Event:PF_Store;
+    } else {
+      DPRINTF(RubySlicc, "Invalid RubyRequestType: %s\n", RubyRequestType_to_string(type));
+      error("Invalid RubyRequestType");
+    }
   }
 
   int getPendingAcks(TBE tbe) {
     return tbe.pendingAcks;
   }
 
-  /**
+/**
    * out_port: keyword that indicates you're declaring an output port which is
    * typically used for sending messages or requests to other components
    * queueName_out: name/identifier given to the output port
@@ -331,76 +331,82 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   // searches for all entries in the queue, not just the head msg. All
   // msgs in the structure can be invalidated if a demand miss matches.
   in_port(optionalQueue_in, RubyRequest, optionalQueue, desc="...", rank = 3) {
-    if (optionalQueue_in.isReady(clockEdge())) {
-      peek(optionalQueue_in, RubyRequest) {
-        // Instruction Prefetch
-        if (in_msg.Type == RubyRequestType:IFETCH) {
-          Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
-          if (is_valid(L1Icache_entry)) {
-            DPRINTF(PythiaL1Slicc, "Instr block %s to be prefetched is already in L1 I-Cache.\n", L1Icache_entry.DataBlk);
-            trigger(prefetch_request_type_to_event(in_msg.Type),
-              in_msg.LineAddress,
-              L1Icache_entry,
-              TBEs[in_msg.LineAddress]);
-          }
-          // Check to see if it is in the OTHER L1
-          Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
-          if (is_valid(L1Dcache_entry)) {
-            DPRINTF(PythiaL1Slicc, "Warning! Instr Block %s to be prefetched is in L1 D-Cache.\n", L1Dcache_entry.DataBlk);
-            trigger(prefetch_request_type_to_event(in_msg.Type),
-              in_msg.LineAddress,
-              L1Dcache_entry, TBEs[in_msg.LineAddress]);
-          }
-          if (L1Icache.cacheAvail(in_msg.LineAddress)) {
-            DPRINTF(PythiaL1Slicc, "Space available in L1 I-Cache. Check if the instr block to be prefetched is in L2.\n");
-            // L1 does't have the line, but we have space for it in the L1 so let's see if the L2 has it.
-            trigger(prefetch_request_type_to_event(in_msg.Type),
-              in_msg.LineAddress,
-              L1Icache_entry, TBEs[in_msg.LineAddress]);
-          } else {
-            // No room in the L1, so we need to make room in the L1
-            DPRINTF(PythiaL1Slicc, "No space in L1 I-Cache. Evict an I-cache block for a prefetched block.\n");
-            Addr victim := L1Icache.cacheProbe(in_msg.LineAddress);
-            trigger(Event:PF_L1_Replacement,
-              victim, getL1ICacheEntry(victim), TBEs[victim]);
-          }
-        } else {
-          // Data prefetch
-          Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
-          if (is_valid(L1Dcache_entry)) {
-            DPRINTF(PythiaL1Slicc, "Data block %s to be prefetched is already in L1 D-Cache.\n", L1Dcache_entry.DataBlk);
-            trigger(prefetch_request_type_to_event(in_msg.Type),
-              in_msg.LineAddress,
-              L1Dcache_entry, TBEs[in_msg.LineAddress]);
-          }
+      if (optionalQueue_in.isReady(clockEdge())) {
+          peek(optionalQueue_in, RubyRequest) {
+              // Instruction Prefetch
+              if (in_msg.Type == RubyRequestType:IFETCH) {
+                  Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
+                  if (is_valid(L1Icache_entry)) {
+                      // The block to be prefetched is already present in the
+                      // cache. We should drop this request.
+                      DPRINTF(RubySlicc, "Instr block at %#x to be prefetched is already in local L1.\n", in_msg.LineAddress);
+                      trigger(prefetch_request_type_to_event(in_msg.Type),
+                              in_msg.LineAddress,
+                              L1Icache_entry, TBEs[in_msg.LineAddress]);
+                  }
+                  // Check to see if it is in the OTHER L1
+                  Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
+                  if (is_valid(L1Dcache_entry)) {
+                      DPRINTF(RubySlicc, "Instr Block at %#x to be prefetched is in L1.\n", in_msg.LineAddress);
+                      // The block is in the wrong L1 cache. We should drop
+                      // this request.
+                      trigger(prefetch_request_type_to_event(in_msg.Type),
+                              in_msg.LineAddress,
+                              L1Dcache_entry, TBEs[in_msg.LineAddress]);
+                  }
 
-          DPRINTF(PythiaL1Slicc, "Data block %s to be prefetched is absent in local L1 I/D-Cache.\n", L1Dcache_entry.DataBlk);
-          // Check to see if it is in the OTHER L1
-          Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
-          if (is_valid(L1Icache_entry)) {
-            DPRINTF(PythiaL1Slicc, "Data block %s to be prefetched is in L1 I-Cache.\n", L1Icache_entry.DataBlk);
-            trigger(prefetch_request_type_to_event(in_msg.Type),
-              in_msg.LineAddress,
-              L1Icache_entry, TBEs[in_msg.LineAddress]);
-          }
+                  if (L1Icache.cacheAvail(in_msg.LineAddress)) {
+                      DPRINTF(RubySlicc, "Space available in L1 for instr block at %#x. Check if the instr block to be prefetched is in L2.\n", in_msg.LineAddress);
+                      // L1 does't have the line, but we have space for it
+                      // in the L1 so let's see if the L2 has it
+                      trigger(prefetch_request_type_to_event(in_msg.Type),
+                              in_msg.LineAddress,
+                              L1Icache_entry, TBEs[in_msg.LineAddress]);
+                  } else {
+                      // No room in the L1, so we need to make room in the L1
+                      DPRINTF(RubySlicc, "No space in L1 for instr block at %#x. Evict a I-cache block for a prefetched block.\n", in_msg.LineAddress);
+                      Addr victim := L1Icache.cacheProbe(in_msg.LineAddress);
+                      trigger(Event:PF_L1_Replacement,
+                              victim, getL1ICacheEntry(victim), TBEs[victim]);
+                  }
+              } else {
+                  // Data prefetch
+                  Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
+                  if (is_valid(L1Dcache_entry)) {
+                      DPRINTF(RubySlicc, "Data block at %#x to be prefetched is already in local L1.\n", in_msg.LineAddress);
+                      // The block to be prefetched is already present in the
+                      // cache. We should drop this request.
+                      trigger(prefetch_request_type_to_event(in_msg.Type),
+                              in_msg.LineAddress,
+                              L1Dcache_entry, TBEs[in_msg.LineAddress]);
+                  }
 
-          DPRINTF(PythiaL1Slicc, "Data block to be prefetched is absent in L1 I/D-Cache.\n");
-          if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
-            DPRINTF(PythiaL1Slicc, "Space available in L1 D-Cache. Check if the data block to be prefetched is in L2.\n");
-            // L1 does't have the line, but we have space for it in the L1 let's see if the L2 has it
-            trigger(prefetch_request_type_to_event(in_msg.Type),
-              in_msg.LineAddress,
-              L1Dcache_entry, TBEs[in_msg.LineAddress]);
-          } else {
-            // No room in the L1, so we need to make room in the L1
-            DPRINTF(PythiaL1Slicc, "No space in L1 D-Cache. Evict a D-cache block for a prefetched block.\n");
-            Addr victim := L1Dcache.cacheProbe(in_msg.LineAddress);
-            trigger(Event:PF_L1_Replacement,
-              victim, getL1DCacheEntry(victim), TBEs[victim]);
+                  // Check to see if it is in the OTHER L1
+                  Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
+                  if (is_valid(L1Icache_entry)) {
+                      DPRINTF(RubySlicc, "Data block at %#x to be prefetched is in L1.\n", in_msg.LineAddress);
+                      // The block is in the wrong L1. Just drop the prefetch request.
+                      trigger(prefetch_request_type_to_event(in_msg.Type),
+                              in_msg.LineAddress,
+                              L1Icache_entry, TBEs[in_msg.LineAddress]);
+                  }
+                  if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
+                      DPRINTF(RubySlicc, "Space available in L1 for data block at %#x. Check if the data block to be prefetched is in L2.\n", in_msg.LineAddress);
+                      // L1 does't have the line, but we have space for it in
+                      // the L1 let's see if the L2 has it
+                      trigger(prefetch_request_type_to_event(in_msg.Type),
+                              in_msg.LineAddress,
+                              L1Dcache_entry, TBEs[in_msg.LineAddress]);
+                  } else {
+                      // No room in the L1, so we need to make room in the L1
+                      DPRINTF(RubySlicc, "No space in L1 for data block at %#x. Evict a D-cache block for a prefetched block.\n", in_msg.LineAddress);
+                      Addr victim := L1Dcache.cacheProbe(in_msg.LineAddress);
+                      trigger(Event:PF_L1_Replacement,
+                              victim, getL1DCacheEntry(victim), TBEs[victim]);
+                  }
+              }
           }
-        }
       }
-    }
   }
 
   // Response  L1 Network - response msg from the L2 bank to this L1 cache
@@ -419,33 +425,31 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
                getState(tbe, cache_entry, in_msg.addr) == State:IS_I ||
                getState(tbe, cache_entry, in_msg.addr) == State:PF_IS ||
                getState(tbe, cache_entry, in_msg.addr) == State:PF_IS_I) &&
-               machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
+              machineIDToMachineType(in_msg.Sender) == MachineType:L1Cache) {
 
-            trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
+              trigger(Event:DataS_fromL1, in_msg.addr, cache_entry, tbe);
 
           } else if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
-            DPRINTF(PythiaL1Slicc, "No pending ack left on DATA response\n");
+            DPRINTF(RubySlicc, "No pending ack left on DATA response\n");
             trigger(Event:Data_all_Acks, in_msg.addr, cache_entry, tbe);
           } else {
-            DPRINTF(PythiaL1Slicc, "Pending ack of TBE on DATA response: %d\n",
-                    getPendingAcks(tbe));
+            DPRINTF(RubySlicc, "Pending ack of TBE on DATA response: %d\n", getPendingAcks(tbe));
             trigger(Event:Data, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:ACK) {
           if ( (getPendingAcks(tbe) - in_msg.AckCount) == 0 ) {
-            DPRINTF(PythiaL1Slicc, "No pending ack left on ACK response\n");
+            DPRINTF(RubySlicc, "No pending ack left on ACK response\n");
             trigger(Event:Ack_all, in_msg.addr, cache_entry, tbe);
           } else {
-            DPRINTF(PythiaL1Slicc, "Pending ack of TBE on ACK response: %d\n",
+            DPRINTF(RubySlicc, "Pending ack of TBE on ACK response: %d\n",
                     getPendingAcks(tbe));
             trigger(Event:Ack, in_msg.addr, cache_entry, tbe);
           }
         } else if (in_msg.Type == CoherenceResponseType:WB_ACK) {
-          DPRINTF(PythiaL1Slicc, "Pending ack of TBE on WB_ACK response: %d\n",
-                  getPendingAcks(tbe));
+          DPRINTF(RubySlicc, "Pending ack of TBE on WB_ACK response: %d\n", getPendingAcks(tbe));
           trigger(Event:WB_Ack, in_msg.addr, cache_entry, tbe);
         } else {
-          DPRINTF(PythiaL1Slicc, "Invalid L1 response type: %s\n", CoherenceResponseType_to_string(in_msg.Type));
+          DPRINTF(RubySlicc, "Invalid L1 response type: %s\n", CoherenceResponseType_to_string(in_msg.Type));
           error("Invalid L1 response type");
         }
       }
@@ -472,7 +476,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         } else if (in_msg.Type == CoherenceRequestType:GET_INSTR) {
           trigger(Event:Fwd_GET_INSTR, in_msg.addr, cache_entry, tbe);
         } else {
-          DPRINTF(PythiaL1Slicc, "Invalid forwarded request type: %s\n", CoherenceRequestType_to_string(in_msg.Type));
+          DPRINTF(RubySlicc, "Invalid forwarded request type: %s\n", CoherenceRequestType_to_string(in_msg.Type));
           error("Invalid forwarded request type");
         }
       }
@@ -490,66 +494,73 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   in_port(mandatoryQueue_in, RubyRequest, mandatoryQueue, desc="...", rank = 0) {
     if (mandatoryQueue_in.isReady(clockEdge())) {
       peek(mandatoryQueue_in, RubyRequest, block_on="LineAddress") {
-        if (in_msg.Type == RubyRequestType:IFETCH) { // *** INSTRUCTION ACCESS ***
+
+        // Check for data access to blocks in I-cache and ifetchs to blocks in D-cache
+
+        if (in_msg.Type == RubyRequestType:IFETCH) {
+          // ** INSTRUCTION ACCESS ***
           Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
           if (is_valid(L1Icache_entry)) {
-            DPRINTF(PythiaL1Slicc, "I-cache hit in L1.\n");
+            DPRINTF(RubySlicc, "I-cache hit in local L1.\n");
             // The tag matches for the L1 I-cache. So, trigger the event IFETCH.
             trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                     L1Icache_entry, TBEs[in_msg.LineAddress]);
           } else {
-            DPRINTF(PythiaL1Slicc, "I-cache miss in L1.\n");
+            DPRINTF(RubySlicc, "I-cache miss in local L1.\n");
             // Check to see if it is in OTHER L1 caches.
-            DPRINTF(PythiaL1Slicc, "Checking if the instr is in D-cache.\n");
+            DPRINTF(RubySlicc, "Checking if the instr is in D-cache.\n");
             Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
             if (is_valid(L1Dcache_entry)) {
-              DPRINTF(PythiaL1Slicc, "Warning! Instr %s is found in D-cache.\n", L1Dcache_entry.DataBlk);
+              DPRINTF(RubySlicc, "Instr %s is found in D-cache. I-cache hit in L1.\n", L1Dcache_entry.DataBlk);
               // The requested block is in other L1$. So, set the L1 block in D-cache to NP/I.
               // This means that once this L1 data block has transitioned to NP/I,
               // there will be a cache miss in D-cache for this block, leading to the code block
-              // that handles I-cache miss being executed.
+              // that handles I-cache miss to be executed.
               trigger(Event:L1_Replacement, in_msg.LineAddress,
-                L1Dcache_entry, TBEs[in_msg.LineAddress]);
+                      L1Dcache_entry, TBEs[in_msg.LineAddress]);
             }
             if (L1Icache.cacheAvail(in_msg.LineAddress)) {
-              DPRINTF(PythiaL1Slicc, "Space available in L1. Check if the missing instr is in L2.\n");
+              DPRINTF(RubySlicc, "Space available in L1. Check if the missing instr is in L2.\n");
               // L1 does not have the requested data, but we have space for it
               // in the L1. So, let's see if the L2 has it.
               trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
-                L1Icache_entry, TBEs[in_msg.LineAddress]);
+                      L1Icache_entry, TBEs[in_msg.LineAddress]);
             } else {
-              DPRINTF(PythiaL1Slicc, "No space in L1. Evict an I-cache block.\n");
+              DPRINTF(RubySlicc, "No space in L1. Evict an I-cache block.\n");
               // Check if the line we want to evict is not locked
               Addr addr := L1Icache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, addr);
               trigger(Event:L1_Replacement, addr, getL1ICacheEntry(addr), TBEs[addr]);
             }
           }
-        } else { // *** DATA ACCESS ***
+        } else {
+          // *** DATA ACCESS ***
           Entry L1Dcache_entry := getL1DCacheEntry(in_msg.LineAddress);
           if (is_valid(L1Dcache_entry)) {
-            DPRINTF(PythiaL1Slicc, "D-cache hit in L1.\n");
+            DPRINTF(RubySlicc, "D-cache hit in local L1.\n");
             // The tag matches for the L1 D-cache. Cache hit.
             trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                     L1Dcache_entry, TBEs[in_msg.LineAddress]);
           } else {
-            DPRINTF(PythiaL1Slicc, "D-cache miss in L1.\n");
+            DPRINTF(RubySlicc, "D-cache miss in local L1.\n");
             // Check to see if it is in the OTHER L1
+            DPRINTF(RubySlicc, "Checking if the data is in I-cache.\n");
             Entry L1Icache_entry := getL1ICacheEntry(in_msg.LineAddress);
             if (is_valid(L1Icache_entry)) {
-              DPRINTF(PythiaL1Slicc, "Warning! Data %s is found in I-cache.\n", L1Icache_entry.DataBlk);
+              DPRINTF(RubySlicc, "Data %s is found in I-cache. D-cache hit in L1.\n", L1Icache_entry.DataBlk);
               // The block is in the wrong L1, put the request on the queue to the shared L2
               trigger(Event:L1_Replacement, in_msg.LineAddress,
                       L1Icache_entry, TBEs[in_msg.LineAddress]);
             }
             if (L1Dcache.cacheAvail(in_msg.LineAddress)) {
-              DPRINTF(PythiaL1Slicc, "Space available in L1. Check if the missing data is in L2.\n");
-              // L1 doe not have the line, but we have space for it in the L1. Check if the L2 has it.
+              DPRINTF(RubySlicc, "Space available in L1. Check if the missing data is in L2.\n");
+              // L1 does't have the line, but we have space for it
+              // in the L1 let's see if the L2 has it.
               trigger(mandatory_request_type_to_event(in_msg.Type), in_msg.LineAddress,
                       L1Dcache_entry, TBEs[in_msg.LineAddress]);
             } else {
               // No room in the L1, so we need to make room in the L1
-              DPRINTF(PythiaL1Slicc, "No space in L1. Evict a D-cache block.\n");
+              DPRINTF(RubySlicc, "No space in L1. Evict a D-cache block.\n");
               // Check if the line we want to evict is not locked
               Addr addr := L1Dcache.cacheProbe(in_msg.LineAddress);
               check_on_cache_probe(mandatoryQueue_in, addr);
@@ -560,14 +571,15 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       }
     }
   }
-  
+
   // This function is called in `src/mem/ruby/structures/PythiaPrefetcher.cc`.
   void enqueuePrefetch(Addr address, RubyRequestType type) {
-    enqueue(optionalQueue_out, RubyRequest, 1) {
-      out_msg.LineAddress := address;
-      out_msg.Type := type;
-      out_msg.AccessMode := RubyAccessMode:Supervisor;
-    }
+      enqueue(optionalQueue_out, RubyRequest, 1) {
+          out_msg.LineAddress := address;
+          out_msg.Type := type;
+          out_msg.AccessMode := RubyAccessMode:Supervisor;
+          DPRINTF(RubySlicc, "Pf req for address: %#x is enqueued.\n", address);
+      }
   }
 
   // ACTIONS
@@ -579,8 +591,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-                address, out_msg.Destination);
+        DPRINTF(RubySlicc, "address: %#x, destination: %s\n", address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.AccessMode := in_msg.AccessMode;
@@ -596,8 +607,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-                address, out_msg.Destination);
+        DPRINTF(RubySlicc, "Pf GetS: address: %#x\n", address);
+        assert(address == in_msg.LineAddress);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.AccessMode := in_msg.AccessMode;
@@ -613,8 +624,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-                address, out_msg.Destination);
+        DPRINTF(RubySlicc, "address: %#x, destination: %s\n", address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.AccessMode := in_msg.AccessMode;
@@ -622,24 +632,23 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     }
   }
 
-  action(pai_issuePfGETINSTR, "pai",
-         desc="Issue GETINSTR for prefetch request") {
-    peek(optionalQueue_in, RubyRequest) {
-      enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
-        out_msg.addr := address;
-        out_msg.Type := CoherenceRequestType:GET_INSTR;
-        out_msg.Requestor := machineID;
-        out_msg.Destination.add(
-        mapAddressToRange(address, MachineType:L2Cache,
-        l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        out_msg.MessageSize := MessageSizeType:Control;
-        out_msg.Prefetch := in_msg.Prefetch;
-        out_msg.AccessMode := in_msg.AccessMode;
+  action(pai_issuePfGETINSTR, "pai", desc="Issue prefetch GETINSTR") {
+      peek(optionalQueue_in, RubyRequest) {
+          enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
+              out_msg.addr := address;
+              assert(address == in_msg.LineAddress);
+              out_msg.Type := CoherenceRequestType:GET_INSTR;
+              out_msg.Requestor := machineID;
+              out_msg.Destination.add(
+                  mapAddressToRange(address, MachineType:L2Cache,
+                          l2_select_low_bit, l2_select_num_bits, intToID(0)));
+              out_msg.MessageSize := MessageSizeType:Control;
+              out_msg.Prefetch := in_msg.Prefetch;
+              out_msg.AccessMode := in_msg.AccessMode;
 
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-        address, out_msg.Destination);
+              DPRINTF(RubySlicc, "Pf GetInstr: address: %#x\n", address);
+          }
       }
-    }
   }
 
   action(b_issueGETX, "b", desc="Issue GETX") {
@@ -648,11 +657,10 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:GETX;
         out_msg.Requestor := machineID;
-        DPRINTF(PythiaL1Slicc, "%s\n", machineID);
+        DPRINTF(RubySlicc, "%s\n", machineID);
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-                address, out_msg.Destination);
+        DPRINTF(RubySlicc, "address: %#x, destination: %s\n", address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.AccessMode := in_msg.AccessMode;
@@ -660,26 +668,26 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     }
   }
 
-  // Same as the `b_issueGETX` action except that the action name is changed.
   action(pb_issuePfGETX, "pb", desc="Issue prefetch GETX") {
-    peek(optionalQueue_in, RubyRequest) {
-      enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
-        out_msg.addr := address;
-        out_msg.Type := CoherenceRequestType:GETX;
-        out_msg.Requestor := machineID;
-        DPRINTF(PythiaL1Slicc, "%s\n", machineID);
-        out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
+      peek(optionalQueue_in, RubyRequest) {
+          enqueue(requestL1Network_out, RequestMsg, l1_request_latency) {
+              out_msg.addr := address;
+              out_msg.Type := CoherenceRequestType:GETX;
+              out_msg.Requestor := machineID;
+              DPRINTF(RubySlicc, "%s\n", machineID);
+              out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-                address, out_msg.Destination);
-        out_msg.MessageSize := MessageSizeType:Control;
-        out_msg.Prefetch := in_msg.Prefetch;
-        out_msg.AccessMode := in_msg.AccessMode;
+
+              DPRINTF(RubySlicc, "Pf GetX: address: %#x\n", address);
+              assert(address == in_msg.LineAddress);
+              out_msg.MessageSize := MessageSizeType:Control;
+              out_msg.Prefetch := in_msg.Prefetch;
+              out_msg.AccessMode := in_msg.AccessMode;
+          }
       }
-    }
   }
 
-  action(c_issueUPGRADE, "c", desc="Issue GETX") {
+  action(c_issueUPGRADE, "c", desc="Issue GETX through upgrading") {
     peek(mandatoryQueue_in, RubyRequest) {
       enqueue(requestL1Network_out, RequestMsg,  l1_request_latency) {
         out_msg.addr := address;
@@ -687,8 +695,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
         out_msg.Requestor := machineID;
         out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
-        DPRINTF(PythiaL1Slicc, "address: %#x, destination: %s\n",
-                address, out_msg.Destination);
+        DPRINTF(RubySlicc, "address: %#x, destination: %s\n", address, out_msg.Destination);
         out_msg.MessageSize := MessageSizeType:Control;
         out_msg.Prefetch := in_msg.Prefetch;
         out_msg.AccessMode := in_msg.AccessMode;
@@ -809,7 +816,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
   action(forward_eviction_to_cpu, "\cc", desc="sends eviction information to the processor") {
     if (send_evictions) {
-      DPRINTF(PythiaL1Slicc, "Sending invalidation for %#x to the CPU\n", address);
+      DPRINTF(RubySlicc, "Sending invalidation for %#x to the CPU\n", address);
       sequencer.evictionCallback(address);
     }
   }
@@ -840,7 +847,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
       out_msg.MessageSize := MessageSizeType:Response_Control;
-      DPRINTF(PythiaL1Slicc, "%#x\n", address);
+      DPRINTF(RubySlicc, "%#x\n", address);
     }
   }
 
@@ -852,16 +859,15 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
       out_msg.Destination.add(mapAddressToRange(address, MachineType:L2Cache,
                           l2_select_low_bit, l2_select_num_bits, intToID(0)));
       out_msg.MessageSize := MessageSizeType:Response_Control;
-      DPRINTF(PythiaL1Slicc, "%#x\n", address);
+      DPRINTF(RubySlicc, "%#x\n", address);
 
     }
   }
 
-  action(h_load_hit, "hd",
-         desc="Notify sequencer the load completed.")
+  action(h_load_hit, "hd", desc="Notify sequencer the load completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     L1Dcache.setMRU(cache_entry);
     sequencer.readCallback(address, cache_entry.DataBlk);
   }
@@ -869,7 +875,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(h_ifetch_hit, "hi", desc="Notify sequencer the instruction fetch completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     L1Icache.setMRU(cache_entry);
     sequencer.readCallback(address, cache_entry.DataBlk);
   }
@@ -877,7 +883,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(hx_load_hit, "hx", desc="Notify sequencer the load completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     // Request misses and new replacement policy info is set for new entry.
     // No need to setMRU on external hit.
     sequencer.readCallback(address, cache_entry.DataBlk, true);
@@ -886,7 +892,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(hh_store_hit, "\h", desc="Notify sequencer that store completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     L1Dcache.setMRU(cache_entry);
     sequencer.writeCallback(address, cache_entry.DataBlk);
     cache_entry.Dirty := true;
@@ -895,7 +901,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
   action(hhx_store_hit, "\hx", desc="Notify sequencer that store completed.")
   {
     assert(is_valid(cache_entry));
-    DPRINTF(PythiaL1Slicc, "%s\n", cache_entry.DataBlk);
+    DPRINTF(RubySlicc, "%s\n", cache_entry.DataBlk);
     // Request misses and new replacement policy info is set for new entry.
     // No need to setMRU on external hit.
     sequencer.writeCallback(address, cache_entry.DataBlk, true);
@@ -945,7 +951,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     peek(responseL1Network_in, ResponseMsg) {
       assert(is_valid(tbe));
       tbe.pendingAcks := tbe.pendingAcks - in_msg.AckCount;
-      DPRINTF(PythiaL1Slicc, "Pending ack count left after the update: %d\n", tbe.pendingAcks);
+      DPRINTF(RubySlicc, "Pending ack count left after the update: %d\n", tbe.pendingAcks);
       APPEND_TRANSITION_COMMENT(in_msg.AckCount);
       APPEND_TRANSITION_COMMENT(" p: ");
       APPEND_TRANSITION_COMMENT(tbe.pendingAcks);
@@ -1005,24 +1011,23 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     peek(mandatoryQueue_in, RubyRequest) {
       if (cache_entry.isPrefetch) {
         assert(enable_l1_prefetch);
-        prefetcher.observeHit(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
         cache_entry.isPrefetch := false;
       }
     }
   }
 
   action(po_observeMiss, "\po", desc="Inform the prefetcher about the cache miss") {
-    peek(mandatoryQueue_in, RubyRequest) {
-      if (enable_l1_prefetch) {
-        prefetcher.observeMiss(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
+      peek(mandatoryQueue_in, RubyRequest) {
+          if (enable_l1_prefetch) {
+              prefetcher.observeMiss(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
+          }
       }
-    }
   }
 
   action(ppm_observePfMiss, "\ppm", desc="Inform the prefetcher about the partial miss") {
     peek(mandatoryQueue_in, RubyRequest) {
       assert(enable_l1_prefetch);
-      prefetcher.observePfMiss(in_msg.LineAddress, in_msg.ProgramCounter, in_msg.Type);
+      prefetcher.recordPartialHits(in_msg.LineAddress, in_msg.ProgramCounter);
     }
   }
 
@@ -1034,11 +1039,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     assert(is_valid(cache_entry));
     assert(enable_l1_prefetch);
     cache_entry.isPrefetch := true;
-  }
-
-  action(pf_markPrefetchFill, "\pf", desc="Assert the prefetch fill bit") {
-    assert(cache_entry.isPrefetch);
-    assert(enable_l1_prefetch);
     prefetcher.prefetch_fill(address);
   }
 
@@ -1070,7 +1070,7 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
 
   transition({S,E,M,IS,IM,SM,IS_I,PF_IS_I,M_I,SINK_WB_ACK,PF_IS,PF_IM},
              {PF_Load, PF_Store, PF_Ifetch}) {
-      pq_popPrefetchQueue;
+    pq_popPrefetchQueue;
   }
 
   transition({NP,I}, Load, IS) {
@@ -1305,7 +1305,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     u_writeDataToL1Cache;
     s_deallocateTBE;
     mp_markPrefetched;
-    pf_markPrefetchFill;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1390,7 +1389,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     mp_markPrefetched;
-    pf_markPrefetchFill;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1432,7 +1430,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     mp_markPrefetched;
-    pf_markPrefetchFill
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1461,7 +1458,6 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP")
     jj_sendExclusiveUnblock;
     s_deallocateTBE;
     mp_markPrefetched;
-    pf_markPrefetchFill;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }

@@ -39,6 +39,7 @@ IMPORTANT: If you modify this file, it's likely that the Learning gem5 book
 import math
 
 from m5.defines import buildEnv
+from m5.util import fatal, panic
 from m5.objects import *
 from m5.util import (
     fatal,

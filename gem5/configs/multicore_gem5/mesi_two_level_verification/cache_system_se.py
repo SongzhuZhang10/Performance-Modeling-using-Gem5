@@ -149,7 +149,6 @@ class CacheSystemSE(RubySystem):
                 cache_line_size=system.cache_line_size,
                 ruby_system=self,
                 clk_domain=l1_cache_clk_domain,
-                prefetcher_name=options.prefetcher_name,
                 enable_l1_prefetch=options.enable_l1_prefetch,
             )
             l1_ctrls.append(l1_cache)
@@ -166,7 +165,8 @@ class CacheSystemSE(RubySystem):
             RubySequencer(
                 version=i,
                 dcache=l1_cache.L1Dcache,
-                clk_domain=l1_cache_clk_domain
+                clk_domain=l1_cache_clk_domain,
+                ruby_system=self,
             )
             for i in range(options.num_cpus)
         ]

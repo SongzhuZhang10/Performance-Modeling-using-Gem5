@@ -32,7 +32,7 @@ config PROTOCOL
     default "MESI_Three_Level_HTM" if RUBY_PROTOCOL_MESI_THREE_LEVEL_HTM
     default "MI_example" if RUBY_PROTOCOL_MI_EXAMPLE
     default "MOESI_CMP_directory" if RUBY_PROTOCOL_MOESI_CMP_DIRECTORY
-    default "MOESI_CMP_token" if RUBY_PROTOCOL_MOESI_CMP_TOKEN
+        default "MOESI_CMP_token" if RUBY_PROTOCOL_MOESI_CMP_TOKEN
     default "MOESI_hammer" if RUBY_PROTOCOL_MOESI_HAMMER
     default "Garnet_standalone" if RUBY_PROTOCOL_GARNET_STANDALONE
 
@@ -54,7 +54,7 @@ cont_choice "Ruby protocol"
         bool "MI example"
     config RUBY_PROTOCOL_MOESI_CMP_DIRECTORY
         bool "MOESI CMP directory"
-    config RUBY_PROTOCOL_MOESI_CMP_TOKEN
+        config RUBY_PROTOCOL_MOESI_CMP_TOKEN
         bool "MOESI CMP token"
     config RUBY_PROTOCOL_MOESI_HAMMER
         bool "MOESI hammer"

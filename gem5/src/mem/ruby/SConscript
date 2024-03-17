@@ -72,14 +72,15 @@ DebugFlag('RubyHitMiss')
 
 # For Pythia prefetcher
 DebugFlag('PythiaPrefetcher')
-DebugFlag('PythiaL1')
-DebugFlag('PythiaL1Slicc')
+DebugFlag('PrefetchL1')
+DebugFlag('PrefetchL2')
+DebugFlag('PythiaSlicc')
 
 CompoundFlag('Ruby', [ 'RubyQueue', 'RubyNetwork', 'RubyTester',
     'RubyGenerated', 'RubySlicc', 'RubySystem', 'RubyCache',
     'RubyDma', 'RubyPort', 'RubySequencer', 'RubyCacheTrace',
     'RubyPrefetcher', 'RubyProtocol', 'RubyHitMiss',
-    'PythiaPrefetcher', 'PythiaL1', 'PythiaL1Slicc'])
+    'PythiaPrefetcher', 'PrefetchL1', 'PrefetchL2', 'PythiaSlicc'])
 
 #
 # Link includes

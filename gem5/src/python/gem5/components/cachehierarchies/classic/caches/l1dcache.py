@@ -30,6 +30,9 @@ from m5.objects import (
     BasePrefetcher,
     Cache,
     StridePrefetcher,
+    ScoobyPrefetcher,
+    IndirectMemoryPrefetcher,
+    SignaturePathPrefetcher,
 )
 
 from .....utils.override import *
@@ -41,6 +44,7 @@ class L1DCache(Cache):
 
     If the cache has a mostly exclusive downstream cache, ``writeback_clean``
     should be set to ``True``.
+    Assume the round-trip latency in L1$ is 4 cycles.
     """
 
     def __init__(
@@ -49,7 +53,7 @@ class L1DCache(Cache):
         assoc: int = 8,
         tag_latency: int = 1,
         data_latency: int = 1,
-        response_latency: int = 1,
+        response_latency: int = 2,
         mshrs: int = 16,
         tgts_per_mshr: int = 20,
         writeback_clean: bool = False,
@@ -65,3 +69,4 @@ class L1DCache(Cache):
         self.tgts_per_mshr = tgts_per_mshr
         self.writeback_clean = writeback_clean
         self.prefetcher = PrefetcherCls()
+        self.is_read_only = False

@@ -31,28 +31,62 @@ from m5.objects import (
     Cache,
     Clusivity,
     StridePrefetcher,
+    ScoobyPrefetcher,
+    TaggedPrefetcher,
+    DCPTPrefetcher,
+    IndirectMemoryPrefetcher,
+    SignaturePathPrefetcher,
+    AMPMPrefetcher,
+    BOPPrefetcher
 )
 
 from .....utils.override import *
 
+"""
+A simple L2 Cache with default values.
+
+Assume the best case round-trip latency in L2$ is 14 cycles.
+
+Tag Latency:
+The time taken to access the tag array of a cache. The tag array stores
+information about the data blocks held in the cache, such as their addresses.
+Accessing the tag array is necessary to determine whether the requested data is
+in the cache.
+
+Data Latency:
+If the data is found in the cache (a cache hit), this is the time taken to
+access the actual data block within the cache memory.
+
+Response Latency:
+The time taken to send the data found in the cache back to the processor or to
+signal a cache miss if the data is not found.
+
+Best-case Round-Trip Latency = Tag Latency + Data Latency + Response Latency
+In best-case, the hit rate of a cache is 100%.
+
+Note that the following prefetchers currently do not work well in L2$ level:
+    IrregularStreamBufferPrefetcher,
+    SignaturePathPrefetcherV2,
+"""
 
 class L2Cache(Cache):
-    """
-    A simple L2 Cache with default values.
-    """
 
     def __init__(
         self,
         size: str,
         assoc: int = 16,
-        tag_latency: int = 10,
-        data_latency: int = 10,
-        response_latency: int = 1,
-        mshrs: int = 20,
+        tag_latency: int = 3,
+        data_latency: int = 3,
+        response_latency: int = 8,
+        mshrs: int = 32,
         tgts_per_mshr: int = 12,
         writeback_clean: bool = False,
         clusivity: Clusivity = "mostly_incl",
-        PrefetcherCls: Type[BasePrefetcher] = StridePrefetcher,
+        #clusivity: Clusivity = "mostly_excl",
+        #PrefetcherCls: Type[BasePrefetcher] = StridePrefetcher,
+        PrefetcherCls: Type[BasePrefetcher] = ScoobyPrefetcher,
+        #PrefetcherCls: Type[BasePrefetcher] = SignaturePathPrefetcher,
+        #PrefetcherCls: Type[BasePrefetcher] = AMPMPrefetcher,
     ):
         super().__init__()
         self.size = size
@@ -65,3 +99,4 @@ class L2Cache(Cache):
         self.writeback_clean = writeback_clean
         self.clusivity = clusivity
         self.prefetcher = PrefetcherCls()
+        self.is_read_only = False

@@ -41,9 +41,12 @@ from msi_caches import (
 )
 
 from m5.defines import buildEnv
-from m5.objects import *
 from m5.util import fatal
 
+from m5.objects import *
+
+from msi_caches import L1Cache, DirController, MyNetwork
+from pprint import pprint
 
 class TestCacheSystem(RubySystem):
     def __init__(self):
@@ -66,6 +69,7 @@ class TestCacheSystem(RubySystem):
         self.network = MyNetwork(self)
 
         # MSI uses 3 virtual networks
+        # Parameter must be specified becausr it's defined in parent class
         self.number_of_virtual_networks = 3
         self.network.number_of_virtual_networks = 3
 
@@ -73,6 +77,8 @@ class TestCacheSystem(RubySystem):
             L1Cache(system, self, self) for i in range(num_testers)
         ] + [DirController(self, system.mem_ranges, mem_ctrls)]
 
+        # Note: The for loop will not create an object for the DirController object
+        # because len(controllers) = num_testers + 1.
         self.sequencers = [
             RubySequencer(
                 version=i,
@@ -82,6 +88,7 @@ class TestCacheSystem(RubySystem):
             )
             for i in range(num_testers)
         ]
+        print("DEBUG: Clock domain of Ruby sequencer is {}".format(self.clk_domain))
 
         for i, c in enumerate(self.controllers[0 : len(self.sequencers)]):
             c.sequencer = self.sequencers[i]
@@ -94,7 +101,7 @@ class TestCacheSystem(RubySystem):
         self.network.setup_buffers()
 
         # Set up a proxy port for the system_port. Used for load binaries and
-        # other functional-only things.
+        # other functional-only things. Parameter must be specified.
         self.sys_port_proxy = RubyPortProxy()
         system.system_port = self.sys_port_proxy.in_ports
 

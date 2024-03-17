@@ -86,17 +86,3 @@ class PythiaPrefetcher(SimObject) :
     within a 4 KB page.
     """
     page_offset_bits = Param.UInt32(12, "Number of bits needed for the page offset")
-
-    """
-    If the prefetcher is installed between the L1 cache and the L2 cache, one
-    must specify which L1 cache the prefetching is working for. This is due to
-    the non-unified nature of the L1 cache, and the Pythia prefetcher is
-    inherently designed for prefetching data into unified caches.
-    """
-    l1_data_prefetch = Param.Bool(True, "Set to true to enable L1 D-cache prefetching.")
-
-    """
-    If the prefetcher is installed between the L2 cache and the main memory,
-    this must be set to true.
-    """
-    l2_prefetch = Param.Bool(False, "Set to true to enable L2 cache prefetching.")

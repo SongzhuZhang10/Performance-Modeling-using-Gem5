@@ -37,7 +37,10 @@ IMPORTANT: If you modify this file, it's likely that the Learning gem5 book
 import math
 
 from m5.defines import buildEnv
+from m5.util import fatal, panic
+
 from m5.objects import *
+from pprint import pprint
 from m5.util import (
     fatal,
     panic,
@@ -46,15 +49,20 @@ from m5.util import (
 
 class MyCacheSystem(RubySystem):
     def __init__(self):
+        # Check the SCons variable PROTOCOL to ensure that
+        # the right configuration file for the protocol is compiled.
         if buildEnv["PROTOCOL"] != "MSI":
             fatal("This system assumes MSI from learning gem5!")
-
-        super().__init__()
+        """We cannot create the controllers in the constructor because it
+        will result in a circular dependence in the SimObject hierarchy,
+        causing infinite recursion when being instantiated.        
+        """
+        super(MyCacheSystem, self).__init__()
 
     def setup(self, system, cpus, mem_ctrls):
         """Set up the Ruby cache subsystem. Note: This can't be done in the
         constructor because many of these items require a pointer to the
-        ruby system (self). This causes infinite recursion in initialize()
+        ruby system (i.e., self). This causes infinite recursion in initialize()
         if we do this in the __init__.
         """
         # Ruby's global network.
@@ -66,18 +74,21 @@ class MyCacheSystem(RubySystem):
         self.number_of_virtual_networks = 3
         self.network.number_of_virtual_networks = 3
 
-        # There is a single global list of all of the controllers to make it
-        # easier to connect everything to the global network. This can be
-        # customized depending on the topology/network requirements.
+        # There is a single global list of all of the controllers.
+        # It is used to make connecting everything to the global network easier.
+        # This can be customized depending on the topology/network requirements.
         # Create one controller for each L1 cache (and the cache mem obj.)
-        # Create a single directory controller (Really the memory cntrl)
+        # Create a single directory controller (i.e., the memory controller) for the system.
         self.controllers = [L1Cache(system, self, cpu) for cpu in cpus] + [
             DirController(self, system.mem_ranges, mem_ctrls)
         ]
 
-        # Create one sequencer per CPU. In many systems this is more
+        # Create one sequencer per CPU. In many systems, this is more
         # complicated since you have to create sequencers for DMA controllers
         # and other controllers, too.
+        """Each sequencer needs a pointer to the instruction and data cache to simulate
+        the correct latency when initially accessing the cache.
+        """
         self.sequencers = [
             RubySequencer(
                 version=i,
@@ -88,8 +99,9 @@ class MyCacheSystem(RubySystem):
             for i in range(len(cpus))
         ]
 
-        # We know that we put the controllers in an order such that the first
-        # N of them are the L1 caches which need a sequencer pointer
+        # After creating the sequencers, we set the sequencer variable on each L1 cache controller.
+        # We put the controllers in an order such that the first
+        # N (N=#CPUs) of them are the L1 caches which need a sequencer pointer.
         for i, c in enumerate(self.controllers[0 : len(self.sequencers)]):
             c.sequencer = self.sequencers[i]
 
@@ -97,43 +109,67 @@ class MyCacheSystem(RubySystem):
 
         # Create the network and connect the controllers.
         # NOTE: This is quite different if using Garnet!
+        # Connect all of the controllers to the network.
         self.network.connectControllers(self.controllers)
+        
+        # Call the setup_buffers function on the network.
         self.network.setup_buffers()
 
-        # Set up a proxy port for the system_port. Used for load binaries and
+        # Set up a proxy port for the system_port.
+        # The proxy port is used to load binaries and
         # other functional-only things.
         self.sys_port_proxy = RubyPortProxy()
         system.system_port = self.sys_port_proxy.in_ports
 
         # Connect the cpu's cache, interrupt, and TLB ports to Ruby
+        """We assume that there are only CPU sequencers. So, the first CPU is
+        connected to the first sequencer, and so on. We also have to connect
+        the TLBs and interrupt ports (if we are using x86).
+        """
         for i, cpu in enumerate(cpus):
             self.sequencers[i].connectCpuPorts(cpu)
 
 
 class L1Cache(L1Cache_Controller):
+
+    # variable to track the version number
     _version = 0
 
+    # Decorator to create a class method
     @classmethod
     def versionCount(cls):
+        # You have to number each SLICC state machine in ascending order from 0.
+        # Each machine of the same type should have a unique version number.
         cls._version += 1  # Use count for this particular type
         return cls._version - 1
 
     def __init__(self, system, ruby_system, cpu):
-        """CPUs are needed to grab the clock domain and system is needed for
-        the cache block size.
+        """Here, we set all of the parameters that we named in
+        the state machine file (e.g., cacheMemory).
         """
         super().__init__()
 
         self.version = self.versionCount()
-        # This is the cache memory object that stores the cache data and tags
+        
+        # This is the cache memory object that stores the cache data and tags.
+        # Hardcode the block size and associativity of the cache.
         self.cacheMemory = RubyCache(
             size="16kB", assoc=8, start_index_bit=self.getBlockSizeBits(system)
         )
+        
         self.clk_domain = cpu.clk_domain
+
         self.send_evictions = self.sendEvicts(cpu)
+        """
+        Must assign `ruby_system` to the `self` instance of the class. Or, an error message
+        "Error in unproxying param 'ruby_system' of system.caches.controllers0.cacheMemory"
+        will be printed.
+        """
         self.ruby_system = ruby_system
         self.connectQueues(ruby_system)
+        
 
+    # This function returns the number of bits in byte offset field.
     def getBlockSizeBits(self, system):
         bits = int(math.log(system.cache_line_size, 2))
         if 2**bits != system.cache_line_size.value:
@@ -141,32 +177,41 @@ class L1Cache(L1Cache_Controller):
         return bits
 
     def sendEvicts(self, cpu):
-        """True if the CPU model or ISA requires sending evictions from caches
+        """ Here, we decide whether to send eviction notices to the CPU.
+        True if the CPU model or ISA requires sending evictions from caches
         to the CPU. Two scenarios warrant forwarding evictions to the CPU:
-        1. The O3 model must keep the LSQ coherent with the caches
-        2. The x86 mwait instruction is built on top of coherence
-        3. The local exclusive monitor in ARM systems
+        1.  Use the O3 CPU. The O3 model must keep the LSQ coherent with the caches.
+        2.  Use x86 ISA. The x86 mwait instruction is built on top of coherence.    
+        3.  Use ARM ISA. The local exclusive monitor in ARM systems.
 
-        As this is an X86 simulation we return True.
+        As this is an X86 simulation, we return True.
         """
         return True
 
     def connectQueues(self, ruby_system):
-        """Connect all of the queues for this controller."""
+        """Connect all of the message buffers (i.e., queues) to the Ruby network
+        for this L1 cache controller.
+        """
         # mandatoryQueue is a special variable. It is used by the sequencer to
-        # send RubyRequests from the CPU (or other processor). It isn't
+        # send RubyRequests originated from the CPU (or other processor)
+        # to cache controllers. It isn't
         # explicitly connected to anything.
+        # Create a message buffer for the mandatory queue.
         self.mandatoryQueue = MessageBuffer()
 
         # All message buffers must be created and connected to the
         # general Ruby network. In this case, "in_port/out_port" don't
         # mean the same thing as normal gem5 ports. If a MessageBuffer
-        # is a "to" buffer (i.e., out) then you use the "out_port",
-        # otherwise, the in_port.
+        # is a "to" buffer (i.e., out), then you use the "out_port";
+        # otherwise, you use the in_port.
+        # Instantiate a message buffer for each buffer in the controller.
+        # For all of the “to” buffers, the network is the master.
         self.requestToDir = MessageBuffer(ordered=True)
         self.requestToDir.out_port = ruby_system.network.in_port
         self.responseToDirOrSibling = MessageBuffer(ordered=True)
         self.responseToDirOrSibling.out_port = ruby_system.network.in_port
+        
+        # For all of the “from” buffers, the network is the slave.
         self.forwardFromDir = MessageBuffer(ordered=True)
         self.forwardFromDir.in_port = ruby_system.network.out_port
         self.responseFromDirOrSibling = MessageBuffer(ordered=True)
@@ -182,7 +227,7 @@ class DirController(Directory_Controller):
         return cls._version - 1
 
     def __init__(self, ruby_system, ranges, mem_ctrls):
-        """ranges are the memory ranges assigned to this controller."""
+        """Ranges are the memory ranges assigned to this controller."""
         if len(mem_ctrls) > 1:
             panic("This cache system can only be connected to one mem ctrl")
         super().__init__()
@@ -222,14 +267,21 @@ class MyNetwork(SimpleNetwork):
         self.ruby_system = ruby_system
 
     def connectControllers(self, controllers):
-        """Connect all of the controllers to routers and connec the routers
+        """Connect all of the controllers to routers and connect the routers
         together in a point-to-point network.
+        This implements a very simple, *unrealistic* point-to-point network.
+        In other words, every controller has a direct link to every other controller.
+        
+        This function
+            1. creates a router for each controller.
+            2. creates an external link from that router to the controller.
+            3. Adds all of the “internal” links. Each router is connected to all
+               other routers to make the point-to-point network.
         """
         # Create one router/switch per controller in the system
         self.routers = [Switch(router_id=i) for i in range(len(controllers))]
 
-        # Make a link from each controller to the router. The link goes
-        # externally to the network.
+        # Make an external link from each controller to the router.
         self.ext_links = [
             SimpleExtLink(link_id=i, ext_node=c, int_node=self.routers[i])
             for i, c in enumerate(controllers)

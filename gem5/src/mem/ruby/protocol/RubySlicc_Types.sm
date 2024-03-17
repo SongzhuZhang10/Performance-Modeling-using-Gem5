@@ -261,10 +261,8 @@ structure (RubyPrefetcher, external = "yes") {
 }
 
 structure (PythiaPrefetcher, external = "yes") {
-  void trainAndPredict(Addr, Addr, RubyRequestType);
   void prefetch_fill(Addr);
-  void observeHit(Addr, Addr, RubyRequestType);
-  void observePfMiss(Addr, Addr, RubyRequestType);
+  void recordPartialHits(Addr, Addr);
   void observeMiss(Addr, Addr, RubyRequestType);
 }
 

@@ -686,3 +686,37 @@ class PIFPrefetcher(QueuedPrefetcher):
         self.addEvent(
             HWPProbeEventRetiredInsts(self, simObj, "RetiredInstsPC")
         )
+
+
+class ScoobyPrefetcher(QueuedPrefetcher):
+    type = "ScoobyPrefetcher"
+    cxx_class = "gem5::prefetch::Scooby"
+    cxx_header = "mem/cache/prefetch/scooby.hh"
+
+    """
+    The standard value of EQ is 256. This value cannot be too large. The larger
+    it is, the longer it takes to train the QVStore.
+    """
+    eval_que_capacity = Param.UInt32(256, "Capacity of the Evaluation Queue (EQ)")
+
+    numTilings = Param.UInt32(3, "Number of tilings in the QVStore")
+    numTiles = Param.UInt32(128, "Number of tiles in the QVStore")
+
+    on_miss     = False # Only notify prefetcher on misses
+    on_read     = True  # Notify prefetcher on reads
+    on_write    = True  # Notify prefetcher on writes
+    on_data     = True  # Notify prefetcher on data accesses
+    on_inst     = True  # Notify prefetcher on instruction accesses
+
+    prefetch_on_access = True # Notify the hardware prefetcher on every access (not just misses)
+
+    prefetch_on_pf_hit = True # Notify the hardware prefetcher on hit on prefetched lines
+
+    cache_snoop = False # Snoop cache to eliminate redundant request
+    enableDynDegree = Param.Bool(True, "Enable dynamic prefetch degree adjustment")
+    useTilingOffset = Param.Bool(True, "Using tiling offset in features' computation")
+
+    epoch_cycles = Param.Cycles(256000, "Cycles in an epoch period")
+    offchip_memory_latency = Param.Latency(
+        "30ns", "Memory latency used to compute the required memory bandwidth"
+    )
