@@ -35,6 +35,8 @@
 #include <vector>
 #include <cmath>
 #include <stdio.h>
+#include <unordered_map>
+#include <functional>
 
 using namespace std;
 
@@ -53,108 +55,90 @@ mutex shared_print_mutex;
  */
 alignas(64) int shared_var = 0; // Align to a 64-byte boundary (common cache line size)
 
-const bool enable_print = true;
-const unsigned num_iterations = 90;
+const unsigned num_iterations = 9999;
 
-void iCacheIntensiveTask(int n, int thread_id) {
+vector<function<void(int&)>> operations;
 
-    double result = 0;
-    // 1. Nested loops with complex calculations:
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < (n * 1.4); ++j) {
-            shared_var_mutex.lock();
-            result = n * (i * j) + sqrt(i * j) + pow(i + j, 3.14) + shared_var;
-            shared_var_mutex.unlock();
-            // Perform some operations with result to prevent compiler optimizations
-            if ((rand() % n) > (n / 2)) {
-                result *= 2 * (rand() % n + 2);
-            }
-            else {
-                result /= 4;
-            }
-        }
-    }
+void iCacheIntensiveTask(int n, int thread_id);
+void initializeOperations();
+void unpredictablyModifyVector(vector<int>& vec, int modifier);
+void dCacheIntensiveTask(int n, int thread_id);
 
-    // Memory-bound operations with unpredictable access patterns:
-    vector<unsigned> largeVector(10000, 0);
-    for (unsigned i = 0; i < largeVector.size(); ++i) {
-        largeVector[i] = i * n + (n % 10);
-    }
-    for (unsigned i = 0; i < largeVector.size(); ++i) {
-        int index = n + (largeVector[i] % 100);
-        largeVector[index] = largeVector[i] * largeVector[index];
-    }
-    // Combine elements using XOR
-    unsigned combinedValue = 0;
-    for (unsigned i = 0; i < largeVector.size(); ++i) {
-        shared_var_mutex.lock();
-        combinedValue ^= (largeVector[i] + shared_var);
-        shared_var_mutex.unlock();
-    }
+void initializeOperations()
+{
+    operations.push_back([](int& x){ x += rand() % 100; });
+    operations.push_back([](int& x){ x -= rand() % 50; });
+    operations.push_back([](int& x){ x ^= rand() % 25; });
+}
 
-    if (enable_print) {
-        // NOTE: When a thread prints something out, the print statement must be
-        // guarded by mutexes.
-        shared_print_mutex.lock();
-        printf("Thread %d: reault        = %.3f\n", thread_id, result);
-        printf("Thread %d: combinedValue = %u\n", thread_id, combinedValue);
-        shared_print_mutex.unlock();
+void unpredictablyModifyVector(vector<int>& vec, int modifier)
+{
+    for (size_t i = 0; i < vec.size(); ++i) {
+        int index = rand() % vec.size();
+        operations[rand() % operations.size()](vec[index]);
+        vec[index] = (vec[index] + modifier) % 10000;
     }
 }
 
-// Thread function
+void iCacheIntensiveTask(int n, int thread_id)
+{
+    printf("I-Cache Intensive Task with ID %d starts running.\n", thread_id);
+    vector<int> dynamicVector(rand() % 20000 + 10000);
+    for (auto& elem : dynamicVector) {
+        elem = rand();
+    }
+    unpredictablyModifyVector(dynamicVector, n);
+    int result = 0;
+    for (size_t i = 0; i < dynamicVector.size(); i += rand() % 100 + 1) {
+        shared_var_mutex.lock();
+        result ^= dynamicVector[i] + shared_var;
+        shared_var_mutex.unlock();
+    }
+
+    // NOTE: When a thread prints something out, the print statement must
+    // be guarded by mutexes.
+    shared_print_mutex.lock();
+    printf("I-Cache Intensive Task Thread %d: result = %d\n", thread_id, result);
+    shared_print_mutex.unlock();
+}
+
+
 void dCacheIntensiveTask(int n, int thread_id)
 {
+    printf("D-Cache Intensive Task with ID %d starts running.\n", thread_id);
+    unordered_map<int, int> dataMap;
     for (int i = 0; i < n; ++i) {
+        dataMap[rand() % n] = rand();
+    }
+    for (auto& pair : dataMap) {
         // Lock the mutex to access the shared variable
         shared_var_mutex.lock();
-        shared_var++;
+        pair.second += shared_var;
         // Unlock the mutex before sleeping to allow other threads to access it
         shared_var_mutex.unlock();
     }
-
-    // Allocate a large vector to stress the cache
-    std::vector<int> data(n);
-
-    // Sequential access pattern (cache-friendly)
-    for (int i = 0; i < n; i++) {
-        data[i] = i * 2;
-    }
-
-    // Random access pattern (cache-unfriendly)
-    for (int i = 0; i < n; i++) {
-        int randomIndex = rand() % n;
-        data[randomIndex] += i * (rand() % n);
-    }
-
-    // Computation on the data (to ensure usage)
     int sum = 0;
-    for (int i = 0; i < n; i++) {
-        sum += data[i];
-        shared_var_mutex.lock();
-        sum += ++shared_var;
-        shared_var_mutex.unlock();
+    for (auto& pair : dataMap) {
+        sum += pair.second;
     }
 
-    if (enable_print) {
-        shared_print_mutex.lock();
-        printf("Thread %d: sum = %d\n", thread_id, sum);
-        shared_print_mutex.unlock();
-    }
+    shared_print_mutex.lock();
+    printf("D-Cache Intensive Task Thread %d: sum = %d\n", thread_id, sum);
+    shared_print_mutex.unlock();
 }
 
 // This is a simple multi-threaded application with
-// false sharing to stress the Ruby protocol.
+// extensive random memory access pattern to stress the L2 cache prefetcher.
 int main()
 {
-    // For debugging, use a fixed seed:
-    srand(1);
+    srand(7); // For debugging, use a fixed seed:
     unsigned num_cores = thread::hardware_concurrency();
 
     cout << "This test program is running on " << num_cores << " physical cores ";
     cout << "with " << num_iterations << " iterations." << endl;
-    //cout << "Note that only SimplePt2Pt network class is supported by gem5 SE mode." << endl;
-
+    
+    initializeOperations();
+    
     if (num_cores > 1) {
         vector<thread> threads;
 
@@ -164,18 +148,21 @@ int main()
          * mode. Thus,-1 is required for this test program to work.
          */
         for (unsigned i = 0; i < num_cores - 1; i++) {
-            threads.emplace_back(dCacheIntensiveTask, num_iterations, i);
+            if (i % 2 == 0) {
+                threads.emplace_back(iCacheIntensiveTask, num_iterations, i);
+            } else {
+                threads.emplace_back(dCacheIntensiveTask, num_iterations, i);
+            }
         }
-
+        dCacheIntensiveTask(num_iterations, 0);
         // Execute the last thread with this thread context to avoid runtime errors
         // that exist only in SE mode.
-        iCacheIntensiveTask(num_iterations, num_cores);
-
-        // Wait for all threads to finish.
+        // Wait for all threads to complete their execution
         for (auto& thread : threads) {
             thread.join();
         }
     } else {
+        // If there's only one core, just run one instance of each task sequentially
         iCacheIntensiveTask(num_iterations, 0);
         dCacheIntensiveTask(num_iterations, 0);
     }

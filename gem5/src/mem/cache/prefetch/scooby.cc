@@ -1,5 +1,4 @@
 /*
- *
  * The license below extends only to copyright in the software and shall
  * not be construed as granting a license to any other intellectual
  * property including but not limited to intellectual property relating
@@ -118,17 +117,14 @@ Vault::folded_xor(uint64_t value, uint32_t num_folds) const
     assert((num_folds & (num_folds-1)) == 0); /* has to be power of 2 */
     uint32_t mask = 0;
     uint32_t bits_in_fold = 64/num_folds;
-    if(num_folds == 2)
-    {
+    if(num_folds == 2) {
         mask = 0xffffffff;
     }
-    else
-    {
+    else {
         mask = (1ul << bits_in_fold) - 1;
     }
     uint32_t folded_value = 0;
-    for(uint32_t fold = 0; fold < num_folds; ++fold)
-    {
+    for(uint32_t fold = 0; fold < num_folds; ++fold) {
         folded_value = folded_value ^ ((value >> (fold * bits_in_fold)) & mask);
     }
     return folded_value;
@@ -484,32 +480,40 @@ SigTableEntry::printOffsets() const
 Scooby::
 Stats::Stats(statistics::Group *parent)
     : statistics::Group(parent, "Scooby"),
-      ADD_STAT(demands, statistics::units::Count::get(),
-        "Number of demands"),
-      ADD_STAT(pfIssued, statistics::units::Count::get(),
-        "Number of pf issued (excluding multi-degree pf)"),
-      ADD_STAT(multiDeg, statistics::units::Count::get(),
-        "Number of pf issued by multi degree pf"),
-      ADD_STAT(accurateAndTimely, statistics::units::Count::get(),
-        "Number of accurate and timely rewards"),
-      ADD_STAT(accurateButLate, statistics::units::Count::get(),
-        "Number of accurate but late rewards"),
-      ADD_STAT(inaccurate, statistics::units::Count::get(),
-        "Number of inaccurate rewards"),
-      ADD_STAT(pageCross, statistics::units::Count::get(),
-        "Number of prefetches that across pages"),
-      ADD_STAT(evalQueHits, statistics::units::Count::get(),
-        "Number of hits in evaluation queue"),
-      ADD_STAT(evalQueMisses, statistics::units::Count::get(),
-        "Number of misses in evaluation queue"),
-      ADD_STAT(noPref, statistics::units::Count::get(),
-        "Number of no prefetch rewards"),
-      ADD_STAT(prefFill, statistics::units::Count::get(),
-        "Number of effective prefetch fills"),
-      ADD_STAT(reads, statistics::units::Count::get(),
-        "Number of read requests"),
-      ADD_STAT(writes, statistics::units::Count::get(),
-        "Number of write requests")
+    ADD_STAT(demands, statistics::units::Count::get(),
+    "Number of demands"),
+    ADD_STAT(pfIssued, statistics::units::Count::get(),
+    "Number of pf issued (excluding multi-degree pf)"),
+    ADD_STAT(multiDeg, statistics::units::Count::get(),
+    "Number of pf issued by multi degree pf"),
+    ADD_STAT(accurateAndTimely, statistics::units::Count::get(),
+    "Number of accurate and timely rewards"),
+    ADD_STAT(accurateButLate, statistics::units::Count::get(),
+    "Number of accurate but late rewards"),
+    ADD_STAT(inaccurate, statistics::units::Count::get(),
+    "Number of inaccurate rewards"),
+    ADD_STAT(pageCross, statistics::units::Count::get(),
+    "Number of prefetches that across pages"),
+    ADD_STAT(evalQueHits, statistics::units::Count::get(),
+    "Number of hits in evaluation queue"),
+    ADD_STAT(evalQueMisses, statistics::units::Count::get(),
+    "Number of misses in evaluation queue"),
+    ADD_STAT(noPref, statistics::units::Count::get(),
+    "Number of no prefetch rewards"),
+    ADD_STAT(prefFill, statistics::units::Count::get(),
+    "Number of effective prefetch fills"),
+    ADD_STAT(reads, statistics::units::Count::get(),
+    "Number of read requests"),
+    ADD_STAT(writes, statistics::units::Count::get(),
+    "Number of write requests"),
+    ADD_STAT(inp_h_bw, statistics::units::Count::get(),
+    "Number of inacurate prefetches at high BW"),
+    ADD_STAT(inp_l_bw, statistics::units::Count::get(),
+    "Number of inacurate prefetches at low BW"),
+    ADD_STAT(np_h_bw, statistics::units::Count::get(),
+    "Number of no-prefetches at high BW"),
+    ADD_STAT(np_l_bw, statistics::units::Count::get(),
+    "Number of no-prefetches at low BW")
 {
     using namespace statistics;
     reads.flags(nozero);
@@ -544,7 +548,7 @@ Scooby::processEpochEvent()
 bool
 Scooby::isHighBW() const
 {
-    return m_bandwidth >= m_high_bw_threshold ? true : false;
+    return m_bandwidth >= m_high_bw_threshold;
 }
 
 Scooby::Scooby(const ScoobyPrefetcherParams& p)
@@ -566,7 +570,7 @@ Scooby::Scooby(const ScoobyPrefetcherParams& p)
     epochCycles(p.epoch_cycles),
     m_bandwidth(0),
     maxBandwidth(0),
-    m_high_bw_threshold(114),
+    m_high_bw_threshold(652),
     debug_cycle(0),
     stats(this)
 {
@@ -592,7 +596,7 @@ Scooby::Scooby(const ScoobyPrefetcherParams& p)
 }
 
 int32_t
-Scooby::computeReward(RewardType reward_type) const
+Scooby::computeReward(RewardType reward_type)
 {
     bool high_bw = isHighBW();
     int32_t reward = 0;
@@ -610,10 +614,18 @@ Scooby::computeReward(RewardType reward_type) const
         case RewardType::inaccurate:
             reward = high_bw ? static_cast<int32_t>(RewardValue::R_in_h)
                 : static_cast<int32_t>(RewardValue::R_in_l);
+            if (high_bw)
+                stats.inp_h_bw++;
+            else
+                stats.inp_l_bw++;
             break;
         case RewardType::no_prefetch:
             reward = high_bw ? static_cast<int32_t>(RewardValue::R_np_h)
                 : static_cast<int32_t>(RewardValue::R_np_l);
+            if (high_bw)
+                stats.np_h_bw++;
+            else
+                stats.np_l_bw++;
             break;
         default:
             assert(false);
@@ -738,10 +750,10 @@ Scooby::reward(const std::shared_ptr<EqEntry>& entry)
 }
 
 bool
-Scooby::track(Addr addr, const std::shared_ptr<State> state, uint32_t action, std::shared_ptr<EqEntry>& eq_entry)
+Scooby::track(Addr addr, const std::shared_ptr<State>& state, uint32_t action, std::shared_ptr<EqEntry>& eq_entry)
 {    
     std::vector<std::shared_ptr<EqEntry>> eq_entries_hit = searchEq(addr, false);
-    bool new_addr = eq_entries_hit.empty() ? true : false;
+    bool new_addr = eq_entries_hit.empty();
     if (!new_addr && addr != invalidAddr) {
         stats.evalQueHits++;
         eq_entry = nullptr;
@@ -766,8 +778,8 @@ Scooby::track(Addr addr, const std::shared_ptr<State> state, uint32_t action, st
             // Only the last evicted eq entry is used to update the QVStore.
             qVStore->train(r0, s0, a0, s1, a1);
         }
-        last_evicted_eq_entry = dq_entry; // TODO: Swap this line with the next line affect results?
-        reward(last_evicted_eq_entry);
+        reward(dq_entry);
+        last_evicted_eq_entry = dq_entry;
     }
     auto new_entry = std::make_shared<EqEntry>(addr, state, action);
     eval_que.push_back(new_entry);
@@ -798,7 +810,7 @@ Scooby::genMultiDegreePref(Addr page, uint32_t scooby_offset, int32_t action_off
 }
 
 void
-Scooby::predict(Addr pkt_addr, const std::shared_ptr<State> state, std::vector<AddrPriority>& addresses)
+Scooby::predict(Addr pkt_addr, const std::shared_ptr<State>& state, std::vector<AddrPriority>& addresses)
 {
     Addr page = state->getPage();
     uint32_t pref_degree = 1;
@@ -850,6 +862,7 @@ Scooby::predict(Addr pkt_addr, const std::shared_ptr<State> state, std::vector<A
     } else {
         assert(pref_line_addr == invalidAddr);
         track(pref_line_addr, state, action, eq_entry);
+        assert(eq_entry == nullptr);
     }
 }
 

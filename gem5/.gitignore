@@ -37,4 +37,5 @@ src/.debris
 cpu_tests/benchmarks/bin/arm/FloatMM
 cpu_tests/benchmarks/bin/arm/Bubblesort
 /build_foo/*
-tests/test-progs/threads/bin/x86/linux
+tests/test-progs/threads/bin
+m5out*

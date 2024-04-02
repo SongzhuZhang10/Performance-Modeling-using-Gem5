@@ -44,12 +44,11 @@
  *  Online Reinforcement Learning,” arXiv (Cornell University), Oct. 2021, doi:
  *  https://doi.org/10.1145/3466752.3480114.
  * 
- * Much of the code is derived from my interpretation of the referenced paper.
+ * Much of the code was derived from my interpretation of the referenced paper.
  * For prefetcher design details that are either omitted or ambiguous in the
- * paper, I consulted the original code used by the authors for architectural
- * exploration, which led to the final design of this prefetcher. This process
- * facilitated the identification of all necessary design details not
- * explicitly mentioned in the paper.
+ * paper, I had to consult the original code used by the authors for
+ * architectural exploration. This process facilitated the identification of
+ * all necessary design details not explicitly mentioned in the paper.
  */
 
 #ifndef __MEM_CACHE_PREFETCH_SCOOBY_HH__
@@ -63,11 +62,6 @@
 #include "params/ScoobyPrefetcher.hh"
 #include "mem/cache/prefetch/queued.hh"
 
-/**
- * State-vector is defined as a combination of several features.
- * The two constituent features of the state-vector of Scooby prefetcher's are
- * PC+Delta and Sequence of last-4 deltas.
- */
 namespace gem5
 {
 
@@ -359,13 +353,17 @@ private:
         statistics::Scalar prefFill;
         statistics::Scalar reads;
         statistics::Scalar writes;
+        statistics::Scalar inp_h_bw;
+        statistics::Scalar inp_l_bw;
+        statistics::Scalar np_h_bw;
+        statistics::Scalar np_l_bw;
     } stats;
 
     std::unique_ptr<QVStore> qVStore;
 
     /* Called for every demand request */
     void rewardEqEntry(Addr pkt_addr);
-    void predict(Addr pkt_addr, const std::shared_ptr<State> state, std::vector<AddrPriority>& addresses);
+    void predict(Addr pkt_addr, const std::shared_ptr<State>& state, std::vector<AddrPriority>& addresses);
 
     Addr getPageNum(Addr addr) const;
     uint32_t getScoobyOffset(Addr addr) const;
@@ -377,13 +375,13 @@ private:
 
     void registerFill(const CacheAccessor &cache);
     void reward(const std::shared_ptr<EqEntry>& entry);
-    bool track(Addr addr, const std::shared_ptr<State> state, uint32_t action, std::shared_ptr<EqEntry>& eq_entry);
+    bool track(Addr addr, const std::shared_ptr<State>& state, uint32_t action, std::shared_ptr<EqEntry>& eq_entry);
     void assignReward(const std::shared_ptr<EqEntry>& entry, RewardType reward_type);
     void genMultiDegreePref(Addr page, uint32_t scooby_offset, int32_t action, uint32_t pref_degree, std::vector<AddrPriority>& addresses);
     void trackAction(Addr page, int32_t predicted_offset, int32_t action_offset); // same as `track_in_st`
 
     bool isHighBW() const;
-    int32_t computeReward(RewardType reward_type) const;
+    int32_t computeReward(RewardType reward_type);
     void processEpochEvent();
 
     void printEvalQue() const;

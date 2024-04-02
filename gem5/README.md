@@ -1,99 +1,177 @@
-# The gem5 Simulator
+<p align="center">
+  <h3 align="center"> Pythia: Performance Modeling using Gem5 for an RL-Based L2 Hardware Prefetcher
+  </h3>
+</p>
 
-This is the repository for the gem5 simulator. It contains the full source code
-for the simulator and all tests and regressions.
+<p align="center">
+    <a href="https://github.com/SongzhuZhang10/fun_with_gem5/blob/main/gem5/LICENSE">
+        <img alt="GitHub" src="https://img.shields.io/badge/License-MIT-yellow.svg">
+    </a>
+</p>
 
-The gem5 simulator is a modular platform for computer-system architecture
-research, encompassing system-level architecture as well as processor
-microarchitecture. It is primarily used to evaluate new hardware designs,
-system software changes, and compile-time and run-time system optimizations.
+<details open="open">
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#what-is-pythia">What is Pythia?</a></li>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#development-process">Development Process</a></li>
+    <li><a href="#outcomes">Outcomes</a></li>
+    <li><a href="#walkthrough-of-my-deliverables">Walkthrough of My Deliverables</a></li>
+    <ul>
+      <li><a href="#classic-memory-system">Classic Memory System</a></li>
+      <li><a href="#ruby-memory-system"> Ruby Memory System</a></li>
+    </ul>
+    <li><a href="#python-configuration-files-for-cache-memory-system">Python Configuration Files for Cache Memory System</a></li>
+      <ul>
+        <li><a href="#simulation-using-classic-memory-system">Simulation using Classic Memory System</a></li>
+        <li><a href="#simulation-using-ruby-memory-system">Simulation using Ruby Memory System</a></li>
+      </ul>
+    </li>
+    <li><a href="#methodology">Methodology</a></li>
+    <li><a href="#simulation-results-using-npb-benchmark-cg-program-class-a">Simulation Results using NPB Benchmark CG Program Class A</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ol>
+</details>
 
-The main website can be found at <http://www.gem5.org>.
+## What is Pythia?
 
-## Testing status
+> [Pythia](https://github.com/CMU-SAFARI/Pythia/tree/master?tab=readme-ov-file) is a hardware-realizable, light-weight data prefetcher that uses reinforcement learning to generate accurate, timely, and system-aware prefetch requests.
+> Pythia formulates hardware prefetching as a reinforcement learning task. For every demand request, Pythia observes multiple different types of program context information to take a prefetch decision. For every prefetch decision, Pythia receives a numerical reward that evaluates prefetch quality under the current memory bandwidth utilization. Pythia uses this reward to reinforce the correlation between program context information and prefetch decision to generate highly accurate, timely, and system-aware prefetch requests in the future.
 
-**Note**: These regard tests run on the develop branch of gem5:
-<https://github.com/gem5/gem5/tree/develop>.
+## Introduction
+The primary outcome of this project is the performance model of Pythia.
 
-[![Daily Tests](https://github.com/gem5/gem5/actions/workflows/daily-tests.yaml/badge.svg)](https://github.com/gem5/gem5/actions/workflows/daily-tests.yaml)
-[![Weekly Tests](https://github.com/gem5/gem5/actions/workflows/weekly-tests.yaml/badge.svg)](https://github.com/gem5/gem5/actions/workflows/weekly-tests.yaml)
-[![Compiler Tests](https://github.com/gem5/gem5/actions/workflows/compiler-tests.yaml/badge.svg)](https://github.com/gem5/gem5/actions/workflows/compiler-tests.yaml)
+The main objective of this side project is for me to gain hands-on experience in performance modeling for a multi-core computer system using C++ and the [Gem5](https://github.com/gem5/gem5) computer architecture simulator framework.
 
-## Getting started
+Originally, the performance model of Pythia was developed using a trace-driven simulator known as ChampSim. This project endeavors to reconstruct Pythia's performance model within an execution-driven simulator known as Gem5, transitioning from its initial simulation environment to a more complex and versatile one.
 
-A good starting point is <http://www.gem5.org/about>, and for
-more information about building the simulator and getting started
-please see <http://www.gem5.org/documentation> and
-<http://www.gem5.org/documentation/learning_gem5/introduction>.
+Much of the code was derived from my interpretation of the referenced paper. For prefetcher design details that are either omitted or ambiguous in the paper, I had to consult the original code used by the authors for architectural exploration. This process facilitated the identification of all necessary design details not explicitly mentioned in the paper.
 
-## Building gem5
 
-To build gem5, you will need the following software: g++ or clang,
-Python (gem5 links in the Python interpreter), SCons, zlib, m4, and lastly
-protobuf if you want trace capture and playback support. Please see
-<http://www.gem5.org/documentation/general_docs/building> for more details
-concerning the minimum versions of these tools.
+## My Development Process
+0. Acquired a foundational understanding of snooping and directory coherence protocols.
 
-Once you have all dependencies resolved, execute
-`scons build/ALL/gem5.opt` to build an optimized version of the gem5 binary
-(`gem5.opt`) containing all gem5 ISAs. If you only wish to compile gem5 to
-include a single ISA, you can replace `ALL` with the name of the ISA. Valid
-options include `ARM`, `NULL`, `MIPS`, `POWER`, `RISCV`, `SPARC`, and `X86`
-The complete list of options can be found in the build_opts directory.
+1. Got familiar with the Gem5 framework, especially its classic and ruby memory systems.
 
-See https://www.gem5.org/documentation/general_docs/building for more
-information on building gem5.
+2. Comprehended the intricate hardware design and algorithmic abstraction of Pythia presented in the paper.
 
-## The Source Tree
+3. Translated the algorithm of a reinforcement learning-based data prefetcher called Pythia into a C++ performance model and integrated it into Gem5’s classic and Ruby memory systems. This integration leveraged Gem5’s infrastructure for accurate simulation.
 
-The main source tree includes these subdirectories:
+4. Developed Python and shell scripts to configure a multi-core computer system comprising a private L1, private L2, and shared L3 classic memory system, and then ran simulations in Full System mode and System Emulation mode.
 
-* build_opts: pre-made default configurations for gem5
-* build_tools: tools used internally by gem5's build process.
-* configs: example simulation configuration scripts
-* ext: less-common external packages needed to build gem5
-* include: include files for use in other programs
-* site_scons: modular components of the build system
-* src: source code of the gem5 simulator. The C++ source, Python wrappers, and Python standard library are found in this directory.
-* system: source for some optional system software for simulated systems
-* tests: regression tests
-* util: useful utility programs and files
+5. Conducted simulations under various configurations and benchmarks to assess Pythia's performance relative to other advanced prefetchers in Gem5’s prefetcher library.
 
-## gem5 Resources
+## Outcomes
 
-To run full-system simulations, you may need compiled system firmware, kernel
-binaries and one or more disk images, depending on gem5's configuration and
-what type of workload you're trying to run. Many of these resources can be
-obtained from <https://resources.gem5.org>.
+By the conclusion of this project, I have successfully:
 
-More information on gem5 Resources can be found at
-<https://www.gem5.org/documentation/general_docs/gem5_resources/>.
+* Developed the capability to create a performance model based on its algorithmic abstraction and/or hardware specifications.
 
-## Getting Help, Reporting bugs, and Requesting Features
+* Infusing my own C++  and Python code to an industrial-grade simulation framework like Gem5.
 
-We provide a variety of channels for users and developers to get help, report
-bugs, requests features, or engage in community discussions. Below
-are a few of the most common we recommend using.
+## Walkthrough of My Deliverables
+This section outlines the key components of the Pythia prefetcher project, structured within the Gem5 framework. The project is divided into C++ source files for the prefetcher's implementation and Python scripts for configuring the simulation environment. The small changes I made to the Gem5 are omitted here.
 
-* **GitHub Discussions**: A GitHub Discussions page. This can be used to start
-discussions or ask questions. Available at
-<https://github.com/orgs/gem5/discussions>.
-* **GitHub Issues**: A GitHub Issues page for reporting bugs or requesting
-features. Available at <https://github.com/gem5/gem5/issues>.
-* **Jira Issue Tracker**: A Jira Issue Tracker for reporting bugs or requesting
-features. Available at <https://gem5.atlassian.net/>.
-* **Slack**: A Slack server with a variety of channels for the gem5 community
-to engage in a variety of discussions. Please visit
-<https://www.gem5.org/join-slack> to join.
-* **gem5-users@gem5.org**: A mailing list for users of gem5 to ask questions
-or start discussions. To join the mailing list please visit
-<https://www.gem5.org/mailing_lists>.
-* **gem5-dev@gem5.org**: A mailing list for developers of gem5 to ask questions
-or start discussions. To join the mailing list please visit
-<https://www.gem5.org/mailing_lists>.
+### Classic Memory System
+The Pythia's implementation under Gem5's classic memory system resides in two files:
 
-## Contributing to gem5
+*  `scooby.hh`: The header file defining the structure and functionalities of the Pythia prefetcher.
 
-We hope you enjoy using gem5. When appropriate we advise charing your
-contributions to the project. <https://www.gem5.org/contributing> can help you
-get started. Additional information can be found in the CONTRIBUTING.md file.
+*  `scooby.cc`: The source file containing the implementation details of the Pythia prefetcher.
+
+*  `Prefetcher.py`: The configuration script of this prefetcher.
+
+Location of these files: `src/mem/cache/prefetch/`.
+
+### Ruby Memory System
+The Pythia's implementation under Gem5's Ruby memory system resides in two files:
+
+*  `PythiaPrefetcher.hh`: The header file defining the structure and functionalities of the Pythia prefetcher.
+
+*  `PythiaPrefetcher.cc`: The source file containing the implementation details of the Pythia prefetcher.
+
+*  `PythiaPrefetcher.py`: The configuration script of this prefetcher.
+
+Location of these files: `src/mem/ruby/structures/`.
+
+### Python Configuration Files for Cache Memory System
+#### Simulation using Classic Memory System
+To configure a multi-core computer system that comprises a private L1, private L2, and shared L3 classic memory system with Gem5, the following Python scripts are used:
+
+*  `private_l1_private_l2_shared_l3_cache_hierarchy.py`: Configures the cache hierarchy to simulate an Intel Skylake-like multi-processor computer system under which the original design of Pythia was developed, tested, and assessed.
+
+*  `abstract_three_level_cache_hierarchy.py`: Provides a template  for a three-level cache hierarchy within the Gem5 simulation.
+
+Location of these files: `src/python/gem5/components/cachehierarchies/classic/`.
+
+*  `se_top.py`: Configures the simulation environment for simulation in SE  (System Emulation) mode.
+
+* `x86-npb-benchmarks-classic.py`: Sets up the environment for classic memory system simulation in FS  (Full System) mode, specifically targeting NPB  (NAS Parallel Benchmarks).
+
+Location of these files: `configs/multicore_gem5/multicore_with_classic_caches/`.
+
+* `./run.sh`: Script to simplify and automate the Gem5 build and simulation process.
+* `./tests/test-progs/threads/src/threads.cpp`: Multi-threaded C++ test program that runs in SE mode for sanity checking and to provide rapid feedback during the debugging process.
+
+#### Simulation using Ruby Memory System
+To configure a multi-core computer system simulation using a private L1,  and shared L2 Ruby memory system with Gem5, the following Python scripts are used:
+
+*  `l1_cache.py`,  `l2_cache.py`,  `simple_pt2pt.py`,  `cache_system_se.py`: Configures the MESI two-level cache hierarchy that is used for simulation in SE mode.
+
+*  `mesi_se_top.py`: Configures the simulation environment for simulation in SE  (System Emulation) mode.
+
+* `x86-npb-benchmarks-ruby.py`: Sets up the environment for Ruby memory system simulation in FS  (Full System) mode, specifically targeting NPB  (NAS Parallel Benchmarks).
+
+Location of these files: `configs/multicore_gem5/mesi_two_level_ruby_caches/`.
+
+### Methodology
+In the initial phase of development, I constructed the performance model for the Pythia prefetcher based solely on its description within the referenced paper. However, the performance statistics generated by my model did not align with the outcomes described in the paper. This discrepancy led me to consider that the paper might have omitted some critical design details for the sake of simplicity and brevity.
+
+Fortunately, the authors included a link to the original C++ code utilized in the development of the Pythia prefetcher with ChampSim. This codebase comprised extensive and convoluted C++ code, enabling a high degree of configurability. This configurability was crucial for navigating through numerous architectural design choices for the Pythia prefetcher, allowing for the exploration of various parameter variations to derive the final design of Pythia.
+
+By examining the original C++ code, I was able to infer the missing elements of the Pythia's detailed design that were absent in the paper. This insight enabled me to successfully refine and complete my performance model.
+
+### Simulation Results of NPB Benchmark CG Program Class A on Gem5 with Classic Memory
+
+<div align="center">
+Table 1: Simulated system parameters
+
+| Component     | Specification |
+|:-------------:|:-------------:|
+| Core | Timing Simple CPU |
+| L1 I-Cache | Private, 32KiB, 64B line, 8 way, LRU, 16 MSHRs, 4-cycle round-trip latency |
+| L1 D-Cache | Private, 32KiB, 64B line, 8 way, LRU, 16 MSHRs, 4-cycle round-trip latency, stride prefetcher |
+| L2 Cache | Private, 256KiB, 64B line, 8 way, LRU, 32 MSHRs, 14-cycle round-trip latency, variable prefetchers|
+| L3 Cache (LLC) | 2MB/core, 64B line, 16 way, 64MSHRs per LLC bank, 34-cycle round-trip latency |
+| Main Memory | Dual channel DDR4 2400|
+
+</div>
+
+SPP: Signature Path Prefetcher
+DCPT: Delta Correlating Prediction Tables Prefetcher
+
+#### Accuracy Results
+<div align="center">
+
+| L2 Prefetcher | 1 Core    | 2 Cores   | 4 Cores   |
+|:-------------:|:---------:|:---------:|:---------:|
+| Pythia        | 0.77      | 0.78      | 0.72      |
+| SPP           | 0.49      | 0.47      | 0.47      |
+| DCPT          | 0.54      | 0.54      | 0.54      |
+
+</div>
+
+<div align="center">
+
+#### Coverage Results
+
+| L2 Prefetcher | 1 Core    | 2 Cores   | 4 Cores   |
+|:-------------:|:---------:|:---------:|:---------:|
+| Pythia        | 0.64      | 0.66      | 0.58      |
+| SPP           | 0.52      | 0.51      | 0.50      |
+| DCPT          | 0.71      | 0.70      | 0.69      |
+
+</div>
+
+## Contact
+Songzhu Zhang - zsz1002@outlook.com

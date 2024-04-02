@@ -24,6 +24,24 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from typing import Type, Optional
+
+from m5.objects import (
+    BasePrefetcher,
+    Cache,
+    Clusivity,
+    StridePrefetcher,
+    ScoobyPrefetcher,
+    TaggedPrefetcher,
+    DCPTPrefetcher,
+    IndirectMemoryPrefetcher,
+    SignaturePathPrefetcher,
+    AMPMPrefetcher,
+    BOPPrefetcher
+)
+
+from ....utils.override import *
+
 from m5.objects import (
     BadAddr,
     BaseXBar,
@@ -71,10 +89,31 @@ class PrivateL1PrivateL2SharedL3CacheHierarchy(
 
     def __init__(
         self,
-        l1d_size: str,
         l1i_size: str,
+        l1i_assoc: int,
+        l1i_mshrs: int,
+        l1i_tgts_per_mshr: int,
+
+        l1d_size: str,
+        l1d_assoc: int,
+        l1d_mshrs: int,
+        l1d_tgts_per_mshr: int,
+
         l2_size: str,
+        l2_assoc: int,
+        l2_mshrs: int,
+        l2_tgts_per_mshr: int,
+
         l3_size: str,
+        l3_assoc: int,
+        l3_mshrs: int,
+        l3_tgts_per_mshr: int,
+
+        l1i_PrefetcherCls: Optional[Type[BasePrefetcher]] = None,
+        l1d_PrefetcherCls: Optional[Type[BasePrefetcher]] = None,
+        l2_PrefetcherCls: Optional[Type[BasePrefetcher]] = None,
+        l3_PrefetcherCls: Optional[Type[BasePrefetcher]] = None,
+
         membus: BaseXBar = _get_default_membus.__func__(),
     ) -> None:
         """
@@ -89,16 +128,32 @@ class PrivateL1PrivateL2SharedL3CacheHierarchy(
         """
 
         AbstractClassicCacheHierarchy.__init__(self=self)
+
         AbstractThreeLevelCacheHierarchy.__init__(
             self,
             l1i_size=l1i_size,
-            l1i_assoc=8,
+            l1i_assoc=l1i_assoc,
+            l1i_mshrs=l1i_mshrs,
+            l1i_tgts_per_mshr=l1i_tgts_per_mshr,
+            l1i_PrefetcherCls=l1i_PrefetcherCls,
+
             l1d_size=l1d_size,
-            l1d_assoc=8,
+            l1d_assoc=l1d_assoc,
+            l1d_mshrs=l1d_mshrs,
+            l1d_tgts_per_mshr=l1d_tgts_per_mshr,
+            l1d_PrefetcherCls=l1d_PrefetcherCls,
+
             l2_size=l2_size,
-            l2_assoc=8,
+            l2_assoc=l2_assoc,
+            l2_mshrs=l2_mshrs,
+            l2_tgts_per_mshr=l2_tgts_per_mshr,
+            l2_PrefetcherCls=l2_PrefetcherCls,
+
             l3_size=l3_size,
-            l3_assoc=16,
+            l3_assoc=l3_assoc,
+            l3_mshrs=l3_mshrs,
+            l3_tgts_per_mshr=l3_tgts_per_mshr,
+            l3_PrefetcherCls=l3_PrefetcherCls,
         )
 
         self.membus = membus
@@ -128,14 +183,20 @@ class PrivateL1PrivateL2SharedL3CacheHierarchy(
         self.l1icaches = [
             L1ICache(
                 size=self._l1i_size,
-                assoc=self._l1i_assoc
+                assoc=self._l1i_assoc,
+                mshrs=self._l1i_mshrs,
+                tgts_per_mshr=self._l1i_tgts_per_mshr,
+                PrefetcherCls=self._l1i_PrefetcherCls
             )
             for i in range(board.get_processor().get_num_cores())
         ]
         self.l1dcaches = [
             L1DCache(
                 size=self._l1d_size,
-                assoc=self._l1d_assoc
+                assoc=self._l1d_assoc,
+                mshrs=self._l1d_mshrs,
+                tgts_per_mshr=self._l1d_tgts_per_mshr,
+                PrefetcherCls=self._l1d_PrefetcherCls
             )
             for i in range(board.get_processor().get_num_cores())
         ]
@@ -145,14 +206,20 @@ class PrivateL1PrivateL2SharedL3CacheHierarchy(
         self.l2caches = [
             L2Cache(
                 size=self._l2_size,
-                assoc=self._l2_assoc
+                assoc=self._l2_assoc,
+                mshrs=self._l2_mshrs,
+                tgts_per_mshr=self._l2_tgts_per_mshr,
+                PrefetcherCls = self._l2_PrefetcherCls
             )
             for i in range(board.get_processor().get_num_cores())
         ]
         self.l3bus = L3XBar()
         self.l3cache = L3Cache(
                 size=self._l3_size,
-                assoc=self._l3_assoc
+                assoc=self._l3_assoc,
+                mshrs=self._l3_mshrs,
+                tgts_per_mshr=self._l3_tgts_per_mshr,
+                PrefetcherCls = self._l3_PrefetcherCls
             )
 
         # ITLB Page walk caches
