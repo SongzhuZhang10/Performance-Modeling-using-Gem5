@@ -14,7 +14,7 @@
   <ol>
     <li><a href="#what-is-pythia">What is Pythia?</a></li>
     <li><a href="#introduction">Introduction</a></li>
-    <li><a href="#development-process">Development Process</a></li>
+    <li><a href="#my-development-process">Development Process</a></li>
     <li><a href="#outcomes">Outcomes</a></li>
     <li><a href="#walkthrough-of-my-deliverables">Walkthrough of My Deliverables</a></li>
     <ul>
@@ -28,7 +28,7 @@
       </ul>
     </li>
     <li><a href="#methodology">Methodology</a></li>
-    <li><a href="#simulation-results-using-npb-benchmark-cg-program-class-a">Simulation Results using NPB Benchmark CG Program Class A</a></li>
+    <li><a href="#simulation-results-of-npb-benchmark-cg-program-class-a-on-gem5-with-classic-memory">Simulation Results using NPB Benchmark CG Program Class A</a></li>
     <li><a href="#contact">Contact</a></li>
   </ol>
 </details>
@@ -55,7 +55,7 @@ Much of the code was derived from my interpretation of the referenced paper. For
 
 2. Comprehended the intricate hardware design and algorithmic abstraction of Pythia presented in the paper.
 
-3. Translated the algorithm of a reinforcement learning-based data prefetcher called Pythia into a C++ performance model and integrated it into Gem5’s classic and Ruby memory systems. This integration leveraged Gem5’s infrastructure for accurate simulation.
+3. Translated the algorithmic representation of Pythia into a C++ performance model and integrated it into Gem5’s classic and Ruby memory systems. This integration leveraged Gem5’s infrastructure for accurate simulation.
 
 4. Developed Python and shell scripts to configure a multi-core computer system comprising a private L1, private L2, and shared L3 classic memory system, and then ran simulations in Full System mode and System Emulation mode.
 
@@ -134,23 +134,29 @@ By examining the original C++ code, I was able to infer the missing elements of 
 ### Simulation Results of NPB Benchmark CG Program Class A on Gem5 with Classic Memory
 
 <div align="center">
-Table 1: Simulated system parameters
+
+**Table 1: Simulated system parameters**
 
 | Component     | Specification |
 |:-------------:|:-------------:|
-| Core | Timing Simple CPU |
-| L1 I-Cache | Private, 32KiB, 64B line, 8 way, LRU, 16 MSHRs, 4-cycle round-trip latency |
-| L1 D-Cache | Private, 32KiB, 64B line, 8 way, LRU, 16 MSHRs, 4-cycle round-trip latency, stride prefetcher |
-| L2 Cache | Private, 256KiB, 64B line, 8 way, LRU, 32 MSHRs, 14-cycle round-trip latency, variable prefetchers|
-| L3 Cache (LLC) | 2MB/core, 64B line, 16 way, 64MSHRs per LLC bank, 34-cycle round-trip latency |
-| Main Memory | Dual channel DDR4 2400|
+| Core          | Timing Simple CPU |
+| L1 I-Cache    | Private, 32KiB, 64B line, 8 way, LRU, 16 MSHRs, 4-cycle round-trip latency |
+| L1 D-Cache    | Private, 32KiB, 64B line, 8 way, LRU, 16 MSHRs, 4-cycle round-trip latency, stride prefetcher |
+| L2 Cache      | Private, 256KiB, 64B line, 8 way, LRU, 32 MSHRs, 14-cycle round-trip latency, variable prefetchers |
+| L3 Cache (LLC)| 2MB/core, 64B line, 16 way, 64MSHRs per LLC bank, 34-cycle round-trip latency |
+| Main Memory   | Dual channel DDR4 2400 |
 
 </div>
 
-SPP: Signature Path Prefetcher
-DCPT: Delta Correlating Prediction Tables Prefetcher
+SPP: Signature Path Prefetcher  
+DCPT: Delta Correlating Prediction Tables Prefetcher  
 
-#### Accuracy Results
+<div align="center">
+
+**Accuracy Results**
+
+</div>
+
 <div align="center">
 
 | L2 Prefetcher | 1 Core    | 2 Cores   | 4 Cores   |
@@ -163,7 +169,11 @@ DCPT: Delta Correlating Prediction Tables Prefetcher
 
 <div align="center">
 
-#### Coverage Results
+**Coverage Results**
+
+</div>
+
+<div align="center">
 
 | L2 Prefetcher | 1 Core    | 2 Cores   | 4 Cores   |
 |:-------------:|:---------:|:---------:|:---------:|
